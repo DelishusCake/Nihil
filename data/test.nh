@@ -1,10 +1,63 @@
+/*
+This is an example program for nihil. Nihil is meant to be a preprocessor for c not a replacement
+(a la coffeescript->javascript). It compiles directly to c, and thus shares some of c's syntax but borrows 
+heavily from rust and jai:
+	/* Nested comments are a thing */
+	* Variables are constant by default, like rust, but use 'var' instead of 'mut'. 
+	* This applies to values passed to functions too, they need to be declared 'var' to be modified
+	* Structs do not need to be typedef'd, they work out of the box like c++
+	* Operator overloading! No more messy linear algebra
+	* Pointers work like in c, sorry rust, safety isn't a priority
+*/
+
+// Intefacing with c functions is easy because we compile to c, just pre-declare it with the extern keyword
 extern add :: (a:i32, b:i32) -> i32;
 
-main :: () ->
+// Declaring structures is easy, no need to typedef it
+vec4 :: struct
 {
-	let n := 32;
+	x:f32;
+	y:f32;
+	z:f32;
+	w:f32;
+};
+// Operator overloading is supported, but doesn't act as a member function
++ :: (a:vec4, b:vec4) ->
+{
+	// Structs can be declared POD-style, setting each value as needed out of order
+	return vec4
+	{
+		x = (a.x + b.x),
+		y = (a.y + b.y),
+		z = (a.z + b.z),
+		w = (a.w + b.w),
+	}
+}
 
-	if (n >= 32)
+// If no return value is used, the type can be ommited 
+test :: () ->
+{
+	// Do nothing!
+}
+
+// With a return value, just add it after the arrow
+main :: () -> i32
+{
+	// Call functions like c
+	test();
+
+	// This value is inferenced to be an i32
+	let n := 32;
+	// This variable is declared as i32, any other value type needs a cast
+	let var m:i32 = 64;
+	// This value is inferenced as an immutable, stack allocated structure of type vec4
+	let v := vec4 {
+		// Floating point values are inferenced as f32 by default, f64's must be cast as such 
+		x = 1.0
+	};
+	// Calling a c function is just like calling a regular function
+	// The 'if', 'for', and 'while' syntaxes are all the same as c
+	if (add(n, m) == (n+m))
 	{
 		return 0;
 	}

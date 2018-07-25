@@ -4,13 +4,13 @@ Nihil
 >**nihil** *n* (indeclinable)
 >	* indefinite nothing 
 
-Nihil is a small programming language that compiles to C. It is not intended as a *replacement* for C, but rather as a macro-language *on top of C*.
+Nihil is a small programming language that compiles to C. It is not intended as a *replacement* for C, but rather as a micro-language to add the features I think c most needs.
 
-Currently there are no plans to extend it to a fully-compiled language.
+At the moment the language is unusable, only a lexer.
 
 ### Examples
 
-TODO: Add examples here as the language matures
+See data/test.nh for a syntax example
 
 ### License
 

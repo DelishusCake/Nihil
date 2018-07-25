@@ -12,7 +12,7 @@ bool compile(const char *code, size_t code_size)
 		{
 			tokenize(code, code_size, tokens, tokenCount);
 			parse(code, tokens, tokenCount);
-			
+
 			result = true;
 		}
 	}
