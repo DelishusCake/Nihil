@@ -1,0 +1,12 @@
+extern add :: (a:i32, b:i32) -> i32;
+
+main :: () ->
+{
+	let n := 32;
+
+	if (n >= 32)
+	{
+		return 0;
+	}
+	return 1;
+}
