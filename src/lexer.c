@@ -392,6 +392,8 @@ static bool parseToken(lexer_t *lexer)
 				match(lexer, '=') ? TOKEN_COLON_EQUAL : 
 				TOKEN_COLON);
 		} break;
+		case '|':	addTokenNoValue(lexer, match(lexer, '|') ? TOKEN_OR_OR : TOKEN_OR); break;
+		case '&':	addTokenNoValue(lexer, match(lexer, '&') ? TOKEN_AND_AND : TOKEN_AND); break;
 		case '+':	addTokenNoValue(lexer, match(lexer, '+') ? TOKEN_PLUS_PLUS : TOKEN_PLUS); break;
 		case '!':	addTokenNoValue(lexer, match(lexer, '=') ? TOKEN_BANG_EQUAL : TOKEN_BANG); break;
 		case '=':	addTokenNoValue(lexer, match(lexer, '=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL); break;

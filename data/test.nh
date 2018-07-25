@@ -16,10 +16,8 @@ extern add :: (a:i32, b:i32) -> i32;
 // Declaring structures is easy, no need to typedef it
 vec4 :: struct
 {
-	x:f32;
-	y:f32;
-	z:f32;
-	w:f32;
+	// Multiple variables can be declared with the same type
+	x, y, z, w:f32;
 };
 // Operator overloading is supported, but doesn't act as a member function
 + :: (a:vec4, b:vec4) ->
@@ -56,8 +54,8 @@ main :: () -> i32
 		x = 1.0
 	};
 	// Calling a c function is just like calling a regular function
-	// The 'if', 'for', and 'while' syntaxes are all the same as c
-	if (add(n, m) == (n+m))
+	// The 'if', 'for', and 'while' syntaxes are all the same as c and so are logical operators
+	if ((add(n, m) == (n+m)) || (n != m))
 	{
 		return 0;
 	}
