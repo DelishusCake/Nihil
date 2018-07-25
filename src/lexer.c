@@ -106,11 +106,12 @@ static bool buildKeywordHash(lexer_t *lexer)
 	};
 	return true;
 };
-static tokenType_t getIdentifierType(lexer_t *lexer, const token_t *token)
+static tokenType_t getIdentifierType(lexer_t *lexer, 
+	size_t start, size_t len)
 {
 	// Get the string parameters
-	const size_t str_len = token->len;
-	const char *str = (lexer->code + token->start);
+	const size_t str_len = len;
+	const char *str = (lexer->code + start);
 
 	// Hash string and convert to index
 	const u32 hash = hashString(str, str_len);
@@ -181,17 +182,28 @@ static inline bool match(lexer_t *lexer, char expected)
 // Get the next available token in the list, returns NULL if no available tokens
 static token_t* getNextToken(lexer_t *lexer)
 {
+	// Returned token
 	token_t *token = NULL;
-	if ((lexer->tokenUsed + 1) < lexer->tokenSize)
+	// If we are in "count-mode", that is, only counting how many tokens there are, not actually adding them
+	if (lexer->tokenSize == 0)
 	{
-		token = lexer->tokens + lexer->tokenUsed;
-		zeroMemory(token, sizeof(token_t));
+		// Count it
 		lexer->tokenUsed ++;
-	};
+	} else {
+		// Check if we have any tokens left
+		if ((lexer->tokenUsed + 1) <= lexer->tokenSize)
+		{
+			token = lexer->tokens + lexer->tokenUsed;
+			zeroMemory(token, sizeof(token_t));
+			lexer->tokenUsed ++;
+		} else {
+			printf("[INTERNAL ERROR] :: Not enought tokens\n");
+		}
+	}
 	return token;
 };
 // Add a token to the list with no associated string
-static token_t* addTokenNoValue(lexer_t *lexer, tokenType_t type)
+static void addTokenNoValue(lexer_t *lexer, tokenType_t type)
 {
 	token_t* token = getNextToken(lexer);
 	if (token)
@@ -201,7 +213,6 @@ static token_t* addTokenNoValue(lexer_t *lexer, tokenType_t type)
 		token->line = lexer->line;
 		token->line_offset = lexer->line_offset;
 	}
-	return token;
 };
 
 // Eat all numeric characters
@@ -276,16 +287,14 @@ static bool parseString(lexer_t *lexer)
 	advance(lexer); // eat the closing \"
 
 	token_t *token = getNextToken(lexer);
-	if (!token)
+	if (token)
 	{
-		printf("INTERNAL ERROR :: No available tokens\n");
-		return false;
+		token->type = TOKEN_STRING;
+		token->start = start;
+		token->len = (end - start);
+		token->line = start_line;
+		token->line_offset = start_line_offset;
 	}
-	token->type = TOKEN_STRING;
-	token->start = start;
-	token->len = (end - start);
-	token->line = start_line;
-	token->line_offset = start_line_offset;
 	return true;
 };
 // Parses integers and floating point literals and adds it to the token list
@@ -307,16 +316,14 @@ static bool parseNumber(lexer_t *lexer)
 
 	// Write the token
 	token_t *token = getNextToken(lexer);
-	if (!token)
+	if (token)
 	{
-		printf("INTERNAL ERROR :: No available tokens\n");
-		return false;
+		token->type = TOKEN_NUMBER;
+		token->start = start;
+		token->len = len;
+		token->line = start_line;
+		token->line_offset = start_line_offset;
 	}
-	token->type = TOKEN_NUMBER;
-	token->start = start;
-	token->len = len;
-	token->line = start_line;
-	token->line_offset = start_line_offset;
 	return true;
 };
 // Parses identifiers and keywords, adds them to the token list
@@ -331,19 +338,20 @@ static bool parseIdentifier(lexer_t *lexer)
 		advance(lexer);
 
 	const size_t end = lexer->current;
+	const size_t len = (end-start);
+
+	// Check if the identifier is a keyword
+	const tokenType_t type = getIdentifierType(lexer, start, len);
 
 	token_t *token = getNextToken(lexer);
-	if (!token)
+	if (token)
 	{
-		printf("INTERNAL ERROR :: No available tokens\n");
-		return false;
+		token->start = start;
+		token->len = len;
+		token->type = type;
+		token->line = start_line;
+		token->line_offset = start_line_offset;
 	}
-	token->start = start;
-	token->len = (end - start);
-	token->line = start_line;
-	token->line_offset = start_line_offset;
-	// Check if the identifier is a keyword
-	token->type = getIdentifierType(lexer, token);
 	return true;
 };
 // Parses a single token from the character stream
@@ -459,7 +467,10 @@ i32 tokenize(const char *code, size_t code_len,
 	}
 
 	token_t *eof = getNextToken(&lexer);
-	eof->type = TOKEN_EOF;
+	if (eof)
+	{
+		eof->type = TOKEN_EOF;
+	}
 
 	return lexer.tokenUsed;
 };

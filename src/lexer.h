@@ -43,6 +43,10 @@ typedef struct
 	size_t line, line_offset;	// Line and line offset for the token
 } token_t;
 
+/* Tokenizes the code string
+ * NOTE: Passing NULL to tokens and 0 to maxTokens sets the lexer to 
+ * only count how many tokens are needed, purely for allocation purposes
+ */
 i32 tokenize(const char *code, size_t code_len, 
 	token_t *tokens, u32 maxTokens);
 
