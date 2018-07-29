@@ -1,5 +1,5 @@
 /*
-This is an example program for nihil. Nihil is meant to be a preprocessor for c not a replacement
+This is an example program for nihil. Nihil is meant to be a preprocessor for c, not a replacement
 (a la coffeescript->javascript). It compiles directly to c, and thus shares some of c's syntax but borrows 
 heavily from rust and jai:
 	/* Nested comments are a thing */
