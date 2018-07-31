@@ -4,6 +4,8 @@
 #include "core.h"
 #include "util.h"
 
+#include "murmur3.h"
+
 typedef enum
 {
 	TOKEN_EOF,
@@ -29,13 +31,14 @@ typedef enum
 	TOKEN_TRUE, TOKEN_FALSE, TOKEN_NIL,
 	TOKEN_IF, TOKEN_ELSE, 
 	TOKEN_FOR, TOKEN_WHILE, 
-	TOKEN_STRUCT, TOKEN_UNION,
+	TOKEN_STRUCT, TOKEN_UNION, TOKEN_ENUM,
 	TOKEN_EXTERN, TOKEN_RETURN,
 	// Built in types
 	TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
 	TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
 	TOKEN_F32, TOKEN_F64,
 	TOKEN_CHAR, TOKEN_BOOL,
+	TOKEN_PTR,
 } tokenType_t;
 typedef struct
 {

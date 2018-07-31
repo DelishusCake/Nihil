@@ -1,7 +1,7 @@
 #include "lexer.h"
 
-#define MAX_HASH_INDICES		8
-#define MAX_KEYWORDS_PER_LIST	6
+#define MAX_HASH_INDICES		16
+#define MAX_KEYWORDS_PER_LIST	8
 
 typedef struct
 {
@@ -26,7 +26,7 @@ typedef struct
 	u32 tokenSize;				// Number of total tokens available to use
 	token_t *tokens;			// List of tokens
 
-	keywordHash_t keywordHash;	// Hash list for resolving keywords
+	keywordHash_t *keywordHash;	// Hash list for resolving keywords
 } lexer_t;
 
 typedef struct
@@ -35,6 +35,8 @@ typedef struct
 	tokenType_t type;
 } keyword_t;
 
+// Global hash seed
+static const u32 g_hashSeed = 0xDEADBEEF;
 // Global list of keywords and accociated token types
 static keyword_t g_keywords[] =
 {
@@ -51,7 +53,8 @@ static keyword_t g_keywords[] =
 	{ "extern", TOKEN_EXTERN },
 	{ "return", TOKEN_RETURN },
 	{ "struct", TOKEN_STRUCT },
-	{ "union", TOKEN_STRUCT },
+	{ "union", TOKEN_UNION },
+	{ "enum", TOKEN_ENUM },
 	// Built in types
 	{ "u8", TOKEN_U8 },
 	{ "u16", TOKEN_U16 },
@@ -65,21 +68,25 @@ static keyword_t g_keywords[] =
 	{ "f64", TOKEN_F64 },
 	{ "char", TOKEN_CHAR },
 	{ "bool", TOKEN_BOOL },
+	{ "ptr", TOKEN_PTR },
 };
-static bool buildKeywordHash(lexer_t *lexer)
+static bool buildKeywordHash(keywordHash_t *keywordHash)
 {
 	for (u32 i = 0; i < static_len(g_keywords); i++)
 	{
 		// Get the keyword, hash it, and convert the hash to an index
 		const keyword_t *keyword = g_keywords + i;
-		const u32 hash = hashString(keyword->str, strlen(keyword->str));
+		// Hash the value
+		u32 hash = 0;
+		MurmurHash3_x86_32(keyword->str, strlen(keyword->str), g_hashSeed, &hash);
+		// Get the index into the hash table
 		const u32 index = hash % MAX_HASH_INDICES;
 
 		#if 0
 		printf("[DEBUG] :: Hashed %s -> %d : index %d\n", keyword->str, hash, index);
 		#endif
 
-		keywordList_t *list = lexer->keywordHash.lists + index;
+		keywordList_t *list = keywordHash->lists + index;
 		if ((list->len + 1) < MAX_KEYWORDS_PER_LIST)
 		{
 			#if DEBUG
@@ -114,11 +121,13 @@ static tokenType_t getIdentifierType(lexer_t *lexer,
 	const char *str = (lexer->code + start);
 
 	// Hash string and convert to index
-	const u32 hash = hashString(str, str_len);
+	u32 hash = 0;
+	MurmurHash3_x86_32(str, str_len, g_hashSeed, &hash);
 	const u32 index = hash % MAX_HASH_INDICES;
 	
 	// Linear search the list to find any keyword matches
-	const keywordList_t *list = lexer->keywordHash.lists + index;
+	const keywordHash_t *keywordHash = lexer->keywordHash;
+	const keywordList_t *list = keywordHash->lists + index;
 	for (u32 i = 0; i < list->len; i++)
 	{
 		// Match found
@@ -459,13 +468,19 @@ i32 tokenize(const char *code, size_t code_len,
 	lexer.tokenSize = maxTokens;
 	lexer.tokens = tokens;
 
-	if (buildKeywordHash(&lexer))
+	lexer.keywordHash = malloc(sizeof(keywordHash_t));
+	if (lexer.keywordHash)
 	{
-		while (!isAtEnd(&lexer))
+		zeroMemory(lexer.keywordHash, sizeof(keywordHash_t));
+		if (buildKeywordHash(lexer.keywordHash))
 		{
-			if (!parseToken(&lexer))
-				return -1;
-		};
+			while (!isAtEnd(&lexer))
+			{
+				if (!parseToken(&lexer))
+					return -1;
+			};
+		}
+		free(lexer.keywordHash);
 	}
 
 	token_t *eof = getNextToken(&lexer);

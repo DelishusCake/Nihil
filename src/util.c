@@ -42,6 +42,7 @@ void zeroMemory(void *dst, size_t size)
 	}
 }
 
+#if 0
 u32	hashString(const char *string, size_t length)
 {
 	// DJB2 hashing function
@@ -55,6 +56,7 @@ u32	hashString(const char *string, size_t length)
 	}
 	return hash;
 }
+#endif
 
 bool stringTest(
 	const char *a, size_t a_length, 

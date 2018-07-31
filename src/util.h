@@ -10,7 +10,6 @@
 void 	copyMemory(void *dst, const void *src, size_t size);
 void 	zeroMemory(void *dst, size_t size);
 
-u32		hashString(const char *string, size_t length);
 bool	stringTest(
 	const char *a, size_t a_length, 
 	const char *b, size_t b_length);
@@ -29,18 +28,20 @@ i32 	stringToInt(const char *string, size_t size);
 u8* loadEntireFile(const char *path, size_t *size);
 
 // Preprocessor macro for declaring an array of something, i.e. arrayOf_int_t
-#define arrayOf(__type__)				arrayOf_##__type__##_t
+#define arrayOf(__type__)			arrayOf_##__type__##_t
+// Preprocessor macro for pre-declaring an array of something
+#define defineArrayOf(__type__)\
+	typedef struct \
+	{ \
+		u32 used, size;\
+		__type__ *data;\
+	} arrayOf(__type__);
 // Allocates a member of an array of something
 #define arrayAlloc(__type__, array)	arrayAlloc_##__type__(array)
 // Frees an array of something
 #define freeArray(__type__, array)	freeArray_##__type__(array)
 // Declares the interface for an array of something
 #define declareArrayOf(__type__) \
-	typedef struct \
-	{ \
-		u32 used, size;\
-		__type__ *data;\
-	} arrayOf(__type__);\
 	__type__* arrayAlloc_##__type__(arrayOf(__type__) *array) {\
 		if (!array->data) {\
 			array->used = 0;\

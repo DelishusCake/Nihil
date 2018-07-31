@@ -1,31 +1,13 @@
 #include "parser.h"
 
 /* Abstract Syntax Tree structures */
-struct expr_s;
+struct expr_s; 
 typedef struct expr_s expr_t;
 
-typedef struct
-{
-	expr_t *expression;
-} exprGroup_t;
+struct stmt_s;
+typedef struct stmt_s stmt_t;
 
-typedef struct
-{
-	token_t operator;
-	expr_t *right;
-} exprUnary_t;
-
-typedef struct
-{
-	token_t operator;
-	expr_t *left;
-	expr_t *right;
-} exprBinary_t;
-
-typedef struct
-{
-	token_t value;
-} exprLiteral_t;
+defineArrayOf(stmt_t);
 
 typedef enum
 {
@@ -34,30 +16,41 @@ typedef enum
 	EXPR_UNARY,
 	EXPR_BINARY,
 	EXPR_LITERAL,
+	EXPR_VARIABLE,
 } exprType_t;
 struct expr_s
 {
 	exprType_t type;
 	union
 	{
-		exprGroup_t group;
-		exprUnary_t unary;
-		exprBinary_t binary;
-		exprLiteral_t literal;
+		struct
+		{
+			expr_t *expression;
+		} group;
+		struct
+		{
+			token_t operator;
+			expr_t *right;
+		} unary;
+		struct
+		{
+			token_t operator;
+			expr_t *left;
+			expr_t *right;
+		} binary;
+		struct
+		{
+			token_t value;
+		} literal;
+		struct
+		{
+			token_t name;
+		} variable;
 	};
+	// Free/active list pointer
+	expr_t *next;
+	expr_t *prev;
 };
-
-typedef struct
-{
-	expr_t *expr;
-} stmtExpr_t;
-
-typedef struct
-{
-	token_t name;
-	token_t type;
-	expr_t *initializer;
-} stmtVar_t;
 
 typedef enum
 {
@@ -65,17 +58,28 @@ typedef enum
 	STMT_EXPR,
 	STMT_VAR,
 } stmtType_t;
-typedef struct
+struct stmt_s
 {
 	stmtType_t type;
 	union
 	{
-		stmtExpr_t expression;
-		stmtVar_t var;
+		struct
+		{
+			expr_t *expr;
+		} expression;
+		struct
+		{
+			token_t name;
+			token_t type;
+			expr_t *initializer;
+		} var;
+		struct 
+		{
+			arrayOf(stmt_t) statements;
+		} group;
 	};
-} stmt_t;
+};
 
-declareArrayOf(expr_t);
 declareArrayOf(stmt_t);
 
 /* Recursive descent parser */
@@ -85,9 +89,53 @@ typedef struct
 	const char *code;
 	const token_t *tokens;
 
-	arrayOf(expr_t) expressions;
+	// Freelist for expressions
+	expr_t *freeExpression;
+
+	// List of global statements
 	arrayOf(stmt_t) statements;
 } parser_t;
+
+static expr_t* addExpression(parser_t *parser)
+{
+	expr_t *expr = NULL;
+	if (parser->freeExpression)
+	{
+		expr = parser->freeExpression;
+		parser->freeExpression = expr->next;
+	}else{
+		expr = malloc(sizeof(expr_t));
+	}
+	if (expr)
+	{
+		zeroMemory(expr, sizeof(expr_t));
+	}
+	return expr;
+};
+static void removeExpression(parser_t *parser, expr_t *expr)
+{
+	// Recursive removal of child expressions
+	switch (expr->type)
+	{
+		case EXPR_GROUP:
+		{
+			removeExpression(parser, expr->group.expression);
+		} break;
+		case EXPR_UNARY:
+		{
+			removeExpression(parser, expr->unary.right);
+		} break;
+		case EXPR_BINARY:
+		{
+			removeExpression(parser, expr->binary.left);
+			removeExpression(parser, expr->binary.right);
+		} break;
+		default: break;
+	};
+
+	expr->next = parser->freeExpression;
+	parser->freeExpression = expr;
+};
 
 static void error(const parser_t *parser, token_t token, const char *msg)
 {
@@ -145,7 +193,7 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 	return false;
 };
 
-//Pre-declare basic expression function
+// Pre-declare basic expression function
 // Yaaaaaaaaay recursion and functional programming
 static expr_t* expression(parser_t *parser);
 
@@ -153,14 +201,27 @@ static expr_t* primary(parser_t *parser)
 {
 	// Check for boolean values, strings, NULL, and numbers
 	{
-		const tokenType_t types[] = { TOKEN_FALSE, TOKEN_TRUE, TOKEN_NIL, TOKEN_NUMBER, TOKEN_STRING, TOKEN_IDENTIFIER };
+		const tokenType_t types[] = { TOKEN_FALSE, TOKEN_TRUE, TOKEN_NIL, TOKEN_NUMBER, TOKEN_STRING };
 		if (match(parser, types, static_len(types)))
 		{
 			token_t value = peekPrev(parser);
 
-			expr_t *lit = arrayAlloc(expr_t, &parser->expressions);
+			expr_t *lit = addExpression(parser);
 			lit->type = EXPR_LITERAL;
 			lit->literal.value = value;
+			return lit;
+		}
+	}
+	// Check for variables
+	{
+		const tokenType_t types[] = { TOKEN_IDENTIFIER };
+		if (match(parser, types, static_len(types)))
+		{
+			token_t name = peekPrev(parser);
+
+			expr_t *lit = addExpression(parser);
+			lit->type = EXPR_VARIABLE;
+			lit->variable.name = name;
 			return lit;
 		}
 	}
@@ -172,7 +233,7 @@ static expr_t* primary(parser_t *parser)
 			expr_t *expr = expression(parser);
 			if (consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression"))
 			{
-				expr_t *group = arrayAlloc(expr_t, &parser->expressions);
+				expr_t *group = addExpression(parser);
 				group->type = EXPR_GROUP;
 				group->group.expression = expr;
 				return group;
@@ -192,7 +253,7 @@ static expr_t* unary(parser_t *parser)
 		token_t operator = peekPrev(parser);
 		expr_t *right = unary(parser);
 
-		expr_t *un = arrayAlloc(expr_t, &parser->expressions);
+		expr_t *un = addExpression(parser);
 		un->type = EXPR_UNARY;
 		un->unary.operator = operator;
 		un->unary.right = right;
@@ -212,7 +273,7 @@ static expr_t* multiplication(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = unary(parser);
 
-			expr_t *mult = arrayAlloc(expr_t, &parser->expressions);
+			expr_t *mult = addExpression(parser);
 			mult->type = EXPR_BINARY;
 			mult->binary.left = expr;
 			mult->binary.operator = operator;
@@ -235,7 +296,7 @@ static expr_t* addition(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = multiplication(parser);
 
-			expr_t *add = arrayAlloc(expr_t, &parser->expressions);
+			expr_t *add = addExpression(parser);
 			add->type = EXPR_BINARY;
 			add->binary.left = expr;
 			add->binary.operator = operator;
@@ -263,7 +324,7 @@ static expr_t* comparison(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = addition(parser);
 
-			expr_t *comp = arrayAlloc(expr_t, &parser->expressions);
+			expr_t *comp = addExpression(parser);
 			comp->type = EXPR_BINARY;
 			comp->binary.left = expr;	
 			comp->binary.operator = operator;	
@@ -286,7 +347,7 @@ static expr_t* equality(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = comparison(parser);
 			
-			expr_t *eq = arrayAlloc(expr_t, &parser->expressions);
+			expr_t *eq = addExpression(parser);
 			eq->type = EXPR_BINARY;
 			eq->binary.left = expr;
 			eq->binary.operator = operator;
@@ -301,32 +362,6 @@ static expr_t* expression(parser_t *parser)
 {
 	return equality(parser);
 };
-
-#if 0
-static void synchronize(parser_t *parser)
-{
-	advance(parser);
-	while (!isAtEnd(parser))
-	{
-		if (peekPrev(parser).type == TOKEN_SEMICOLON)
-			return;
-
-		switch (peek(parser).type)
-		{
-			case TOKEN_IF:
-			case TOKEN_LET:
-			case TOKEN_FOR:
-			case TOKEN_WHILE:
-			case TOKEN_RETURN:
-				return;
-
-			default: break;
-		};
-
-		advance(parser);
-	};
-};
-#endif
 
 static stmt_t* statement(parser_t *parser);
 
@@ -465,6 +500,7 @@ static void printToken(const char *code, const token_t *token)
 		case TOKEN_RETURN: type = "RETURN"; break;
 		case TOKEN_STRUCT: type = "STRUCT"; break;
 		case TOKEN_UNION: type = "UNION"; break;
+		case TOKEN_ENUM: type = "ENUM"; break;
 		// Built in types
 		case TOKEN_U8: type = "U8"; break;
 		case TOKEN_U16: type = "U16"; break;
@@ -478,6 +514,7 @@ static void printToken(const char *code, const token_t *token)
 		case TOKEN_F64: type = "F64"; break;
 		case TOKEN_CHAR: type = "CHAR"; break;
 		case TOKEN_BOOL: type = "BOOL"; break;
+		case TOKEN_PTR: type = "PTR"; break;
 		// Unknown (to make the compiler shut up)
 		default: type = "UNKNOWN"; break;
 	};
@@ -528,6 +565,13 @@ static void printExpression(const char *code, const expr_t *expr, u32 index)
 				printf("\t");
 			printToken(code, &expr->literal.value);
 		} break;
+		case EXPR_VARIABLE:
+		{
+			printf("EXPR_VARIABLE\n");
+			for(u32 i = 0; i < index; i++)
+				printf("\t");
+			printToken(code, &expr->variable.name);
+		} break;
 	};
 };
 static void printStatement(const char *code, const stmt_t *stmt)
@@ -572,7 +616,7 @@ i32 parse(const char *code, const token_t *tokens, u32 tokenCount)
 		stmt = declaration(&parser);
 	};
 
+	// TODO: Free resources
 	freeArray(stmt_t, &parser.statements);
-	freeArray(expr_t, &parser.expressions);
 	return 0;
 }
