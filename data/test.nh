@@ -32,8 +32,8 @@ vec4 :: struct
 	}
 }
 
-// If no return value is used, the type can be ommited 
-test :: () ->
+// If no return value is used, the type and arrow can be ommited 
+test :: ()
 {
 	// Do nothing!
 }

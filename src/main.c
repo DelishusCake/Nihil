@@ -4,6 +4,8 @@
 #include "core.h"
 #include "util.h"
 
+#include "tests.h"
+
 #include "compiler.h"
 
 static void help()
@@ -29,7 +31,7 @@ int main(int argc, const char *argv[])
 			free(code);
 		}
 	} else {
-		help();
+		run_tests();
 	}
 	return result;
 }

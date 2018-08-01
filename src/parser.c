@@ -647,14 +647,15 @@ i32 parse(const char *code, const token_t *tokens, u32 tokenCount)
 		const token_t *token = tokens + i;
 		printToken(code, token);
 	}
-	#endif
-
+	#else
 	stmt_t *stmt = declaration(&parser);
 	while (stmt)
 	{
 		printStatement(code, stmt);
 		stmt = declaration(&parser);
 	};
+	#endif
+
 
 	// TODO: Free resources
 	freeArray(stmt_t, &parser.statements);
