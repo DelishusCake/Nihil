@@ -196,7 +196,6 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 // Pre-declare basic expression function
 // Yaaaaaaaaay recursion and functional programming
 static expr_t* expression(parser_t *parser);
-
 static expr_t* primary(parser_t *parser)
 {
 	// Check for boolean values, strings, NULL, and numbers
@@ -364,10 +363,37 @@ static expr_t* expression(parser_t *parser)
 };
 
 static stmt_t* statement(parser_t *parser);
-
+static stmt_t* expressionStatement(parser_t *parser)
+{
+	expr_t *expr = expression(parser);
+	if (expr)
+	{
+		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
+		{
+			stmt_t *stmt = arrayAlloc(stmt_t, &parser->statements);
+			stmt->type = STMT_EXPR;
+			stmt->expression.expr = expr;
+			return stmt;
+		};
+	};
+	return NULL;
+};
+static stmt_t* statement(parser_t *parser)
+{
+	return expressionStatement(parser);
+};
 static stmt_t* variableDeclaration(parser_t *parser)
 {
+	/* NOTE: There are two types of declaration for variables
+		1.	let <variable_name>:<type> = <initializer>;
+			Explicit declaration declares the variable of the type <type>, with an optional <initializer> if the variable is non-constant.
+			The compiler should present an error if the <initializer> expression does not evaluate to <type>.
+		2. let <variable_name> := <initializer>;
+			Implicit declaration declares the variable to be the type of the evaluated <initializer> expression. <initializer is not optional.
+	*/
+	// All variables are constant by default
 	bool isConstant = true;
+	// Check for the 'var' keyword to make this variable mutable
 	{
 		const tokenType_t types[] = { TOKEN_VAR };
 		if (match(parser, types, static_len(types)))
@@ -375,31 +401,63 @@ static stmt_t* variableDeclaration(parser_t *parser)
 			isConstant = false;
 		};
 	}
+	// Consume the variable name
 	if (consume(parser, TOKEN_IDENTIFIER, "Expected variable name"))
 	{
+		// Get the name token
 		token_t name = peekPrev(parser);
-
+		// TODO: Implement the type system
 		token_t type = {};
+		// Get the initialization expression
 		expr_t *initializer = NULL;
-
 		{
-			const tokenType_t type_decl_types[] = { TOKEN_COLON };
-			const tokenType_t type_inf_types[] = { TOKEN_COLON_EQUAL };
-			const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
+			const tokenType_t type_decl_types[] = { TOKEN_COLON, TOKEN_COLON_EQUAL };
 			if (match(parser, type_decl_types, static_len(type_decl_types)))
 			{
-				type = advance(parser);
-				if (match(parser, type_equal_types, static_len(type_equal_types)))
+				switch (peekPrev(parser).type)
 				{
-					initializer = expression(parser);
-				} else if (isConstant) {
-					error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
-					return NULL;
-				}
-			}else if (match(parser, type_inf_types, static_len(type_inf_types)))
-			{
-				initializer = expression(parser);
-			};
+					// Explicit declaration
+					case TOKEN_COLON:
+					{
+						// Get the type
+						type = advance(parser);
+						// If there is an equal sign after the type
+						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
+						if (match(parser, type_equal_types, static_len(type_equal_types)))
+						{
+							// Get the initializer expression
+							initializer = expression(parser);
+							if (!initializer)
+							{
+								error(parser, peekPrev(parser), "Expected initializer");
+								return NULL;
+							};
+							// TODO: Check for initializer type
+						} else {
+							// If the type is supposed to be constant, throw an error if there's no initializer
+							if (isConstant) 
+							{
+								error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
+								return NULL;
+							}
+						}
+					} break;
+					// Implicit declaration
+					case TOKEN_COLON_EQUAL:
+					{
+						// Get the initializer expression
+						initializer = expression(parser);
+						if (!initializer)
+						{
+							error(parser, peekPrev(parser), "Expected initializer for type-inferenced variable declaration");
+							return NULL;
+						};
+						// TODO: Check for initializer type
+					} break;
+					// It can only be : or :=, just shut up gcc
+					default: break;
+				};	
+			}
 		}
 
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration"))
@@ -425,25 +483,6 @@ static stmt_t* declaration(parser_t *parser)
 	}
 	return statement(parser);
 }
-static stmt_t* expressionStatement(parser_t *parser)
-{
-	expr_t *expr = expression(parser);
-	if (expr)
-	{
-		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
-		{
-			stmt_t *stmt = arrayAlloc(stmt_t, &parser->statements);
-			stmt->type = STMT_EXPR;
-			stmt->expression.expr = expr;
-			return stmt;
-		};
-	};
-	return NULL;
-};
-static stmt_t* statement(parser_t *parser)
-{
-	return expressionStatement(parser);
-};
 
 static void printToken(const char *code, const token_t *token)
 {
@@ -498,6 +537,7 @@ static void printToken(const char *code, const token_t *token)
 		case TOKEN_NIL: type = "NIL"; break;
 		case TOKEN_EXTERN: type = "EXTERN"; break;
 		case TOKEN_RETURN: type = "RETURN"; break;
+		case TOKEN_REF: type = "REF"; break;
 		case TOKEN_STRUCT: type = "STRUCT"; break;
 		case TOKEN_UNION: type = "UNION"; break;
 		case TOKEN_ENUM: type = "ENUM"; break;
