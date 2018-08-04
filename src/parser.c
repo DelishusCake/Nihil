@@ -451,10 +451,10 @@ static void printToken(const char *code, const token_t *token, bool printLine)
 		{
 			printf("[%d:%d]\t:: %s: \"%.*s\"\n",
 				token->line, token->line_offset, 
-				type, token->len, (code+token->start));
+				type, token->len, token->start);
 		}else{
 			printf("%s: \"%.*s\"\n", 
-				type, token->len, (code+token->start));
+				type, token->len, token->start);
 		}
 	} else {
 		if (printLine)
@@ -523,7 +523,7 @@ static void printStatement(const char *code, const stmt_t *stmt)
 		case STMT_VAR:
 		{
 			const token_t *nameToken = &stmt->var.name;
-			printf("NAME :: %.*s\n", nameToken->len, (code+nameToken->start));
+			printf("NAME :: %.*s\n", nameToken->len, nameToken->start);
 			printToken(code, &stmt->var.type, false);
 			if (stmt->var.initializer)
 			{

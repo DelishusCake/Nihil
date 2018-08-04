@@ -43,9 +43,11 @@ typedef enum
 } tokenType_t;
 typedef struct
 {
-	tokenType_t type;			// Token type
-	size_t start, len;			// Start and length for the token string
-	size_t line, line_offset;	// Line and line offset for the token
+	tokenType_t type;	// Token type
+	const char *start;	// The pointer into the code string of the token
+	size_t len;			// Length for the token string
+	size_t line;		// The line of code this token exists on
+	size_t line_offset;	// The offset into the line this token is on
 } token_t;
 
 defineArrayOf(token_t);

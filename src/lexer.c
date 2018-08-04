@@ -211,7 +211,8 @@ static void addTokenNoValue(lexer_t *lexer, tokenType_t type)
 	assert (token);
 
 	token->type = type;
-	token->start = token->len = 0;
+	token->start = NULL;
+	token->len = 0;
 	token->line = lexer->line;
 	token->line_offset = lexer->line_offset;
 };
@@ -296,7 +297,7 @@ static bool parseString(lexer_t *lexer)
 
 	token_t *token = addToken(lexer);
 	token->type = TOKEN_STRING;
-	token->start = start;
+	token->start = lexer->code + start;
 	token->len = (end - start);
 	token->line = start_line;
 	token->line_offset = start_line_offset;
@@ -326,7 +327,7 @@ static bool parseNumber(lexer_t *lexer)
 	// Write the token
 	token_t *token = addToken(lexer);
 	token->type = type;
-	token->start = start;
+	token->start = lexer->code + start;
 	token->len = len;
 	token->line = start_line;
 	token->line_offset = start_line_offset;
@@ -354,7 +355,7 @@ static bool parseIdentifier(lexer_t *lexer)
 	token->type = type;
 	token->line = start_line;
 	token->line_offset = start_line_offset;
-	token->start = start;
+	token->start = lexer->code + start;
 	token->len = len;
 	return true;
 };
