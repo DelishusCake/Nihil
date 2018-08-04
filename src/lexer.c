@@ -1,5 +1,9 @@
 #include "lexer.h"
 
+/* Hashlist for keyword parsing 
+ * Keywords are hashed to an integer for fast comparison
+ * In debug mode, the hashlist checks for any collisions
+ */
 #define MAX_HASH_INDICES		16
 #define MAX_KEYWORDS_PER_LIST	8
 
@@ -16,28 +20,13 @@ typedef struct
 
 typedef struct
 {
-	size_t current;				// Current character
-	size_t line, line_offset;	// Line and line offset for the current char
-	
-	size_t code_len;			// Size of the code string to process
-	const char *code;			// String of code to process
-
-	u32 tokenUsed;				// Current number of tokens used
-	u32 tokenSize;				// Number of total tokens available to use
-	token_t *tokens;			// List of tokens
-
-	keywordHash_t *keywordHash;	// Hash list for resolving keywords
-} lexer_t;
-
-typedef struct
-{
 	char  *str;
 	tokenType_t type;
 } keyword_t;
 
 // Global hash seed
 static const u32 g_hashSeed = 0xDEADBEEF;
-// Global list of keywords and accociated token types
+// Global list of keywords and associated token types
 static keyword_t g_keywords[] =
 {
 	// Keywords
@@ -78,6 +67,7 @@ static bool buildKeywordHash(keywordHash_t *keywordHash)
 		// Get the keyword, hash it, and convert the hash to an index
 		const keyword_t *keyword = g_keywords + i;
 		// Hash the value
+		// TODO: Move to the proper function of murmurhash depending on the architecture
 		u32 hash = 0;
 		MurmurHash3_x86_32(keyword->str, strlen(keyword->str), g_hashSeed, &hash);
 		// Get the index into the hash table
@@ -114,6 +104,21 @@ static bool buildKeywordHash(keywordHash_t *keywordHash)
 	};
 	return true;
 };
+
+/* Lexer structure */
+typedef struct
+{
+	size_t current;				// Current character
+	size_t line, line_offset;	// Line and line offset for the current char
+	
+	size_t code_len;			// Size of the code string to process
+	const char *code;			// String of code to process
+
+	arrayOf(token_t) *tokens;	// Array of tokens
+
+	keywordHash_t *keywordHash;	// Hash list for resolving keywords
+} lexer_t;
+
 static tokenType_t getIdentifierType(lexer_t *lexer, 
 	size_t start, size_t len)
 {
@@ -189,40 +194,26 @@ static inline bool match(lexer_t *lexer, char expected)
 	return true;
 };
 
-// Get the next available token in the list, returns NULL if no available tokens
-static token_t* getNextToken(lexer_t *lexer)
+// Declare the token array functions
+declareArrayOf(token_t);
+
+static token_t* addToken(lexer_t *lexer)
 {
-	// Returned token
-	token_t *token = NULL;
-	// If we are in "count-mode", that is, only counting how many tokens there are, not actually adding them
-	if (lexer->tokenSize == 0)
-	{
-		// Count it
-		lexer->tokenUsed ++;
-	} else {
-		// Check if we have any tokens left
-		if ((lexer->tokenUsed + 1) <= lexer->tokenSize)
-		{
-			token = lexer->tokens + lexer->tokenUsed;
-			zeroMemory(token, sizeof(token_t));
-			lexer->tokenUsed ++;
-		} else {
-			printf("[INTERNAL ERROR] :: Not enought tokens\n");
-		}
-	}
+	token_t *token = arrayAlloc(token_t, lexer->tokens);
+	assert (token);
+	zeroMemory(token, sizeof(token_t));
 	return token;
 };
 // Add a token to the list with no associated string
 static void addTokenNoValue(lexer_t *lexer, tokenType_t type)
 {
-	token_t* token = getNextToken(lexer);
-	if (token)
-	{
-		token->type = type;
-		token->start = token->len = 0;
-		token->line = lexer->line;
-		token->line_offset = lexer->line_offset;
-	}
+	token_t* token = arrayAlloc(token_t, lexer->tokens);
+	assert (token);
+
+	token->type = type;
+	token->start = token->len = 0;
+	token->line = lexer->line;
+	token->line_offset = lexer->line_offset;
 };
 
 // Eat all numeric characters
@@ -244,6 +235,7 @@ static bool parseMultilineComments(lexer_t *lexer)
 	const size_t start_line = lexer->line;
 	const size_t start_line_offset = lexer->line_offset-1;
 
+	// Count for recursive, nested comments
 	i32 count = 1;
 	while (!isAtEnd(lexer))
 	{
@@ -263,8 +255,13 @@ static bool parseMultilineComments(lexer_t *lexer)
 			if (count == 0)
 				break;
 		}
+		// Eat all other tokens
 		advance(lexer);
 	}
+	/*
+	Are we still in a comment and at the end of the string?
+	The user forgot to terminate the comment 
+	*/
 	if (isAtEnd(lexer) && (count != 0))
 	{
 		printf("ERROR [%d:%d] :: Unterminated comment\n", start_line, start_line_offset);
@@ -281,6 +278,7 @@ static bool parseString(lexer_t *lexer)
 
 	while ((peek(lexer) != '\"') && !isAtEnd(lexer))
 	{
+		//TODO: Handle escaped characters
 		if (peek(lexer) == '\n')
 			nextLine(lexer);
 		advance(lexer);
@@ -294,9 +292,9 @@ static bool parseString(lexer_t *lexer)
 	};
 
 	const size_t end = lexer->current;
-	advance(lexer); // eat the closing \"
+	advance(lexer); // eat the closing quotation mark
 
-	token_t *token = getNextToken(lexer);
+	token_t *token = addToken(lexer);
 	if (token)
 	{
 		token->type = TOKEN_STRING;
@@ -325,7 +323,7 @@ static bool parseNumber(lexer_t *lexer)
 	const size_t len = (lexer->current - start);
 
 	// Write the token
-	token_t *token = getNextToken(lexer);
+	token_t *token = addToken(lexer);
 	if (token)
 	{
 		token->type = TOKEN_NUMBER;
@@ -349,19 +347,18 @@ static bool parseIdentifier(lexer_t *lexer)
 
 	const size_t end = lexer->current;
 	const size_t len = (end-start);
+	assert(len);
 
 	// Check if the identifier is a keyword
 	const tokenType_t type = getIdentifierType(lexer, start, len);
 
-	token_t *token = getNextToken(lexer);
-	if (token)
-	{
-		token->start = start;
-		token->len = len;
-		token->type = type;
-		token->line = start_line;
-		token->line_offset = start_line_offset;
-	}
+	token_t *token = addToken(lexer);
+	assert (token);
+	token->type = type;
+	token->line = start_line;
+	token->line_offset = start_line_offset;
+	token->start = start;
+	token->len = len;
 	return true;
 };
 // Parses a single token from the character stream
@@ -453,9 +450,10 @@ static bool parseToken(lexer_t *lexer)
 	return true;
 };
 
-i32 tokenize(const char *code, size_t code_len, 
-	token_t *tokens, u32 maxTokens)
+tokenizeError_t tokenize(const char *code, size_t code_len, arrayOf(token_t) *tokens)
 {
+	assert(tokens);
+
 	lexer_t lexer = {};
 	lexer.current = 0;
 
@@ -465,8 +463,6 @@ i32 tokenize(const char *code, size_t code_len,
 	lexer.code = code;
 	lexer.code_len = code_len;
 
-	lexer.tokenUsed = 0;
-	lexer.tokenSize = maxTokens;
 	lexer.tokens = tokens;
 
 	lexer.keywordHash = malloc(sizeof(keywordHash_t));
@@ -478,17 +474,17 @@ i32 tokenize(const char *code, size_t code_len,
 			while (!isAtEnd(&lexer))
 			{
 				if (!parseToken(&lexer))
-					return -1;
+					return TOKENIZE_ERROR;
 			};
 		}
 		free(lexer.keywordHash);
 	}
 
-	token_t *eof = getNextToken(&lexer);
+	token_t *eof = addToken(&lexer);
 	if (eof)
 	{
 		eof->type = TOKEN_EOF;
 	}
 
-	return lexer.tokenUsed;
+	return TOKENIZE_NO_ERROR;
 };

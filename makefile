@@ -6,7 +6,7 @@ lib_path := lib/
 
 bin := nihil.exe
 def := DEBUG
-opt := -std=c11 -c -O3 -Wall
+opt := -std=c11 -g -c -Wall
 lib :=
 
 out/%.o: src/%.c

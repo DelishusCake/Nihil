@@ -12,18 +12,19 @@
 // Basic lexer test: string -> token_types[]
 static MunitResult test_lex(const char *string, const tokenType_t *expected, u32 expected_count)
 {
-	token_t tokens[128];
-	i32 count = tokenize(string, strlen(string), 
-		tokens, static_len(tokens));
+	arrayOf(token_t) tokens = {};
+	tokenizeError_t error = tokenize(string, strlen(string), &tokens);
 	// No errors expected
-	assert_true(count > 0);
+	assert_true(error == TOKENIZE_NO_ERROR);
 	// Expected the same number of tokens
-	assert_int(count, ==, expected_count);
+	assert_int(tokens.used, ==, expected_count);
 	// Tokens should be equal
-	for (u32 i = 0; i < count; i++)
+	for (u32 i = 0; i < tokens.used; i++)
 	{
-		assert_int((i32) tokens[i].type, ==, (i32) expected[i]);
+		assert_int((i32) tokens.data[i].type, ==, (i32) expected[i]);
 	};
+	// Free the token array
+	freeArray(token_t, &tokens);
 	// Passed
 	return MUNIT_OK;
 };

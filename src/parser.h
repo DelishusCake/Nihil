@@ -7,6 +7,6 @@
 #include "type.h"
 #include "lexer.h"
 
-i32 parse(const char *code, const token_t *tokens, u32 tokenCount); 
+i32 parse(const char *code, const arrayOf(token_t) *tokens); 
 
 #endif

@@ -85,7 +85,7 @@ typedef struct
 {
 	u32 currentToken;
 	const char *code;
-	const token_t *tokens;
+	const arrayOf(token_t) *tokens;
 
 	// Freelists for recyclable types
 	expr_t *freeExpression;
@@ -171,14 +171,14 @@ static void error(const parser_t *parser, token_t token, const char *msg)
 
 static token_t peek(const parser_t *parser)
 {
-	return parser->tokens[parser->currentToken];
+	return parser->tokens->data[parser->currentToken];
 };
 static token_t peekPrev(const parser_t *parser)
 {
 	i32 index = parser->currentToken;
 	if (index > 0)
 		index = index - 1;
-	return parser->tokens[index];
+	return parser->tokens->data[index];
 };
 static inline bool isAtEnd(const parser_t *parser)
 {
@@ -826,16 +826,16 @@ static void printStatement(const char *code, const stmt_t *stmt)
 	};
 };
 
-i32 parse(const char *code, const token_t *tokens, u32 tokenCount)
+i32 parse(const char *code, const arrayOf(token_t) *tokens)
 {
 	parser_t parser = {};
 	parser.code = code;
 	parser.tokens = tokens;
 
 	#if 0
-	for (u32 i = 0; i < tokenCount; i++)
+	for (u32 i = 0; i < tokens->used; i++)
 	{
-		const token_t *token = tokens + i;
+		const token_t *token = tokens->data + i;
 		printToken(code, token, true);
 	}
 	#else
@@ -846,7 +846,6 @@ i32 parse(const char *code, const token_t *tokens, u32 tokenCount)
 		stmt = parseDeclaration(&parser);
 	};
 	#endif
-
 
 	// TODO: Free resources
 	freeArray(stmt_t, &parser.statements);

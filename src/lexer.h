@@ -47,11 +47,16 @@ typedef struct
 	size_t line, line_offset;	// Line and line offset for the token
 } token_t;
 
-/* Tokenizes the code string
- * NOTE: Passing NULL to tokens and 0 to maxTokens sets the lexer to 
- * only count how many tokens are needed, purely for allocation purposes
- */
-i32 tokenize(const char *code, size_t code_len, 
-	token_t *tokens, u32 maxTokens);
+defineArrayOf(token_t);
+
+// TODO: More descriptive errors
+typedef enum
+{
+	TOKENIZE_NO_ERROR,
+	TOKENIZE_ERROR,
+} tokenizeError_t;
+
+/* Tokenizes the code string */
+tokenizeError_t tokenize(const char *code, size_t code_len, arrayOf(token_t) *tokens);
 
 #endif

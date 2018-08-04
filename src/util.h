@@ -35,27 +35,37 @@ u8* loadEntireFile(const char *path, size_t *size);
 	{ \
 		u32 used, size;\
 		__type__ *data;\
-	} arrayOf(__type__);
+	} arrayOf(__type__);\
+	__type__* arrayAlloc_##__type__(arrayOf(__type__) *array);\
+	void freeArray_##__type__(arrayOf(__type__) *array)
+
 // Allocates a member of an array of something
 #define arrayAlloc(__type__, array)	arrayAlloc_##__type__(array)
 // Frees an array of something
 #define freeArray(__type__, array)	freeArray_##__type__(array)
-// Declares the interface for an array of something
+/* Declares the interface for an array of something
+ * 		type* arrayAlloc_type(arrayOf(type) *array);
+ *		void  freeArray_type(arrayOf(type) *array);
+ */
 #define declareArrayOf(__type__) \
 	__type__* arrayAlloc_##__type__(arrayOf(__type__) *array) {\
+		assert(array);\
 		if (!array->data) {\
 			array->used = 0;\
 			array->size = 16;\
 			array->data = malloc(array->size*sizeof(__type__));\
+			assert(array->data);\
 		};\
 		if ((array->used + 1) >= array->size){\
 			array->size <<= 1;\
 			array->data = realloc(array->data, array->size*sizeof(__type__));\
+			assert(array->data);\
 		};\
 		const u32 index = array->used++;\
 		return (array->data + index);\
 	};\
 	void freeArray_##__type__(arrayOf(__type__) *array) {\
+		assert(array);\
 		if (array->data) free(array->data);\
 	}
 
