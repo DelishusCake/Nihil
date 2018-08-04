@@ -4,6 +4,7 @@
 #include "core.h"
 #include "util.h"
 
+#include "type.h"
 #include "lexer.h"
 
 i32 parse(const char *code, const token_t *tokens, u32 tokenCount); 

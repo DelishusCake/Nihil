@@ -4,11 +4,6 @@
 struct expr_s; 
 typedef struct expr_s expr_t;
 
-struct stmt_s;
-typedef struct stmt_s stmt_t;
-
-defineArrayOf(stmt_t);
-
 typedef enum
 {
 	EXPR_NONE,
@@ -48,9 +43,13 @@ struct expr_s
 		} variable;
 	};
 	// Free/active list pointer
-	expr_t *next;
-	expr_t *prev;
+	expr_t *next, *prev;
 };
+
+struct stmt_s;
+typedef struct stmt_s stmt_t;
+
+defineArrayOf(stmt_t);
 
 typedef enum
 {
@@ -70,7 +69,7 @@ struct stmt_s
 		struct
 		{
 			token_t name;
-			token_t type;
+			type_t *type;
 			expr_t *initializer;
 		} var;
 		struct 
@@ -79,7 +78,6 @@ struct stmt_s
 		} group;
 	};
 };
-
 declareArrayOf(stmt_t);
 
 /* Recursive descent parser */
@@ -89,14 +87,15 @@ typedef struct
 	const char *code;
 	const token_t *tokens;
 
-	// Freelist for expressions
+	// Freelists for recyclable types
 	expr_t *freeExpression;
+	type_t *freeType;
 
 	// List of global statements
 	arrayOf(stmt_t) statements;
 } parser_t;
 
-static expr_t* addExpression(parser_t *parser)
+static expr_t* createExpression(parser_t *parser)
 {
 	expr_t *expr = NULL;
 	if (parser->freeExpression)
@@ -112,29 +111,57 @@ static expr_t* addExpression(parser_t *parser)
 	}
 	return expr;
 };
-static void removeExpression(parser_t *parser, expr_t *expr)
+static void recycleExpression(parser_t *parser, expr_t *expr)
 {
 	// Recursive removal of child expressions
 	switch (expr->type)
 	{
 		case EXPR_GROUP:
 		{
-			removeExpression(parser, expr->group.expression);
+			recycleExpression(parser, expr->group.expression);
 		} break;
 		case EXPR_UNARY:
 		{
-			removeExpression(parser, expr->unary.right);
+			recycleExpression(parser, expr->unary.right);
 		} break;
 		case EXPR_BINARY:
 		{
-			removeExpression(parser, expr->binary.left);
-			removeExpression(parser, expr->binary.right);
+			recycleExpression(parser, expr->binary.left);
+			recycleExpression(parser, expr->binary.right);
 		} break;
 		default: break;
 	};
 
 	expr->next = parser->freeExpression;
 	parser->freeExpression = expr;
+};
+
+static type_t* createType(parser_t *parser)
+{
+	type_t *type = NULL;
+	if (parser->freeType)
+	{
+		type = parser->freeType;
+		parser->freeType = type->next;
+	}else{
+		type = malloc(sizeof(type_t));
+	}
+	if (type)
+	{
+		zeroMemory(type, sizeof(type_t));
+	}
+	return type;
+};
+static void recycleType(parser_t *parser, type_t *type)
+{
+	// Recursive recycling of ptr types
+	if (type->ptrTo)
+	{
+		recycleType(parser, type->ptrTo);
+	};
+
+	type->next = parser->freeType;
+	parser->freeType = type;
 };
 
 static void error(const parser_t *parser, token_t token, const char *msg)
@@ -193,10 +220,122 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 	return false;
 };
 
-// Pre-declare basic expression function
-// Yaaaaaaaaay recursion and functional programming
-static expr_t* expression(parser_t *parser);
-static expr_t* primary(parser_t *parser)
+static type_t* parseType(parser_t *parser);
+static type_t* parseBuiltInType(parser_t *parser)
+{
+	{
+		const tokenType_t types[] =
+		{ 
+			TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
+			TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
+			TOKEN_F32, TOKEN_F64,
+			TOKEN_CHAR, TOKEN_BOOL
+		};
+		if (match(parser, types, static_len(types)))
+		{
+			size_t size = 0;
+			size_t align = 0;
+			typeClass_t class = TYPE_CLASS_NONE;
+
+			tokenType_t tokenType = peekPrev(parser).type;
+			switch (tokenType)
+			{
+				case TOKEN_U8:
+				{
+					size = 1;
+					align = 4;
+					class = TYPE_CLASS_U8;
+				} break; 
+				case TOKEN_U16:
+				{
+					size = 2;
+					align = 4;
+					class = TYPE_CLASS_U16;
+				} break; 
+				case TOKEN_U32:
+				{
+					size = 4;
+					align = 4;
+					class = TYPE_CLASS_U32;
+				} break; 
+				case TOKEN_U64:
+				{
+					size = 8;
+					align = 8;
+					class = TYPE_CLASS_U64;
+				} break;
+				
+				case TOKEN_I8:
+				{
+					size = 1;
+					align = 4;
+					class = TYPE_CLASS_I8;
+				} break; 
+				case TOKEN_I16:
+				{
+					size = 2;
+					align = 4;
+					class = TYPE_CLASS_I16;
+				} break; 
+				case TOKEN_I32:
+				{
+					size = 4;
+					align = 4;
+					class = TYPE_CLASS_I32;
+				} break; 
+				case TOKEN_I64:
+				{
+					size = 8;
+					align = 8;
+					class = TYPE_CLASS_I64;
+				} break;
+				
+				case TOKEN_F32:
+				{
+					size = 4;
+					align = 4;
+					class = TYPE_CLASS_F32;
+				} break; 
+				case TOKEN_F64:
+				{
+					size = 8;
+					align = 8;
+					class = TYPE_CLASS_F64;
+				} break;
+				
+				case TOKEN_CHAR:
+				{
+					size = 1;
+					align = 4;
+					class = TYPE_CLASS_CHAR;
+				} break; 
+				case TOKEN_BOOL:
+				{
+					size = 4;
+					align = 4;
+					class = TYPE_CLASS_BOOL;
+				} break;
+
+				default: break;
+			};
+
+			type_t *type = createType(parser);
+			type->class = class;
+			type->size = size;
+			type->align = align;
+			type->ptrTo = NULL;
+			return type; 
+		};
+	}
+	return NULL;
+};
+static type_t* parseType(parser_t *parser)
+{
+	return parseBuiltInType(parser);
+};
+
+static expr_t* parseExpression(parser_t *parser);
+static expr_t* parsePrimaryExpression(parser_t *parser)
 {
 	// Check for boolean values, strings, NULL, and numbers
 	{
@@ -205,7 +344,7 @@ static expr_t* primary(parser_t *parser)
 		{
 			token_t value = peekPrev(parser);
 
-			expr_t *lit = addExpression(parser);
+			expr_t *lit = createExpression(parser);
 			lit->type = EXPR_LITERAL;
 			lit->literal.value = value;
 			return lit;
@@ -218,7 +357,7 @@ static expr_t* primary(parser_t *parser)
 		{
 			token_t name = peekPrev(parser);
 
-			expr_t *lit = addExpression(parser);
+			expr_t *lit = createExpression(parser);
 			lit->type = EXPR_VARIABLE;
 			lit->variable.name = name;
 			return lit;
@@ -229,10 +368,10 @@ static expr_t* primary(parser_t *parser)
 		const tokenType_t types[] = { TOKEN_OPEN_PAREN };
 		if (match(parser, types, static_len(types)))
 		{
-			expr_t *expr = expression(parser);
+			expr_t *expr = parseExpression(parser);
 			if (consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression"))
 			{
-				expr_t *group = addExpression(parser);
+				expr_t *group = createExpression(parser);
 				group->type = EXPR_GROUP;
 				group->group.expression = expr;
 				return group;
@@ -243,26 +382,26 @@ static expr_t* primary(parser_t *parser)
 	}
 	return NULL;
 };
-static expr_t* unary(parser_t *parser)
+static expr_t* parseUnaryExpression(parser_t *parser)
 {
 	// Unary checks for '!' and '-'
 	const tokenType_t types[] = { TOKEN_BANG, TOKEN_MINUS };
 	if (match(parser, types, static_len(types)))
 	{
 		token_t operator = peekPrev(parser);
-		expr_t *right = unary(parser);
+		expr_t *right = parseUnaryExpression(parser);
 
-		expr_t *un = addExpression(parser);
+		expr_t *un = createExpression(parser);
 		un->type = EXPR_UNARY;
 		un->unary.operator = operator;
 		un->unary.right = right;
 		return un;
 	};
-	return primary(parser); 
+	return parsePrimaryExpression(parser); 
 };
-static expr_t* multiplication(parser_t *parser)
+static expr_t* parseMultiplicationExpression(parser_t *parser)
 {
-	expr_t *expr = unary(parser);
+	expr_t *expr = parseUnaryExpression(parser);
 	if (expr)
 	{
 		// Multiplication checks for '*' and '/'
@@ -270,9 +409,9 @@ static expr_t* multiplication(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = unary(parser);
+			expr_t *right = parseUnaryExpression(parser);
 
-			expr_t *mult = addExpression(parser);
+			expr_t *mult = createExpression(parser);
 			mult->type = EXPR_BINARY;
 			mult->binary.left = expr;
 			mult->binary.operator = operator;
@@ -283,9 +422,9 @@ static expr_t* multiplication(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* addition(parser_t *parser)
+static expr_t* parseAdditionExpression(parser_t *parser)
 {
-	expr_t *expr = multiplication(parser);
+	expr_t *expr = parseMultiplicationExpression(parser);
 	if (expr)
 	{
 		// Addition checks for '+' and '-'
@@ -293,9 +432,9 @@ static expr_t* addition(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = multiplication(parser);
+			expr_t *right = parseMultiplicationExpression(parser);
 
-			expr_t *add = addExpression(parser);
+			expr_t *add = createExpression(parser);
 			add->type = EXPR_BINARY;
 			add->binary.left = expr;
 			add->binary.operator = operator;
@@ -306,9 +445,9 @@ static expr_t* addition(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* comparison(parser_t *parser)
+static expr_t* parseComparisonExpression(parser_t *parser)
 {
-	expr_t *expr = addition(parser);
+	expr_t *expr = parseAdditionExpression(parser);
 	if (expr)
 	{
 		// Comparison checks for >, >=, <, <=, &&, and ||
@@ -321,9 +460,9 @@ static expr_t* comparison(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = addition(parser);
+			expr_t *right = parseAdditionExpression(parser);
 
-			expr_t *comp = addExpression(parser);
+			expr_t *comp = createExpression(parser);
 			comp->type = EXPR_BINARY;
 			comp->binary.left = expr;	
 			comp->binary.operator = operator;	
@@ -334,9 +473,9 @@ static expr_t* comparison(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* equality(parser_t *parser)
+static expr_t* parseEqualityExpression(parser_t *parser)
 {
-	expr_t *expr = comparison(parser);
+	expr_t *expr = parseComparisonExpression(parser);
 	if (expr)
 	{
 		// Equality checks for != and ==
@@ -344,9 +483,9 @@ static expr_t* equality(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = comparison(parser);
+			expr_t *right = parseComparisonExpression(parser);
 			
-			expr_t *eq = addExpression(parser);
+			expr_t *eq = createExpression(parser);
 			eq->type = EXPR_BINARY;
 			eq->binary.left = expr;
 			eq->binary.operator = operator;
@@ -357,15 +496,15 @@ static expr_t* equality(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* expression(parser_t *parser)
+static expr_t* parseExpression(parser_t *parser)
 {
-	return equality(parser);
+	return parseEqualityExpression(parser);
 };
 
-static stmt_t* statement(parser_t *parser);
-static stmt_t* expressionStatement(parser_t *parser)
+static stmt_t* parseStatement(parser_t *parser);
+static stmt_t* parseExpressionStatement(parser_t *parser)
 {
-	expr_t *expr = expression(parser);
+	expr_t *expr = parseExpression(parser);
 	if (expr)
 	{
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
@@ -378,11 +517,11 @@ static stmt_t* expressionStatement(parser_t *parser)
 	};
 	return NULL;
 };
-static stmt_t* statement(parser_t *parser)
+static stmt_t* parseStatement(parser_t *parser)
 {
-	return expressionStatement(parser);
+	return parseExpressionStatement(parser);
 };
-static stmt_t* variableDeclaration(parser_t *parser)
+static stmt_t* parseVariableDeclaration(parser_t *parser)
 {
 	/* NOTE: There are two types of declaration for variables
 		1.	let <variable_name>:<type> = <initializer>;
@@ -406,8 +545,7 @@ static stmt_t* variableDeclaration(parser_t *parser)
 	{
 		// Get the name token
 		token_t name = peekPrev(parser);
-		// TODO: Implement the type system
-		token_t type = {};
+		type_t *var_type = NULL;
 		// Get the initialization expression
 		expr_t *initializer = NULL;
 		{
@@ -420,13 +558,18 @@ static stmt_t* variableDeclaration(parser_t *parser)
 					case TOKEN_COLON:
 					{
 						// Get the type
-						type = advance(parser);
+						var_type = parseType(parser);
+						if (!var_type)
+						{
+							error(parser, peekPrev(parser), "Error reading type");
+							return NULL;
+						};
 						// If there is an equal sign after the type
 						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
 						if (match(parser, type_equal_types, static_len(type_equal_types)))
 						{
 							// Get the initializer expression
-							initializer = expression(parser);
+							initializer = parseExpression(parser);
 							if (!initializer)
 							{
 								error(parser, peekPrev(parser), "Expected initializer");
@@ -446,7 +589,7 @@ static stmt_t* variableDeclaration(parser_t *parser)
 					case TOKEN_COLON_EQUAL:
 					{
 						// Get the initializer expression
-						initializer = expression(parser);
+						initializer = parseExpression(parser);
 						if (!initializer)
 						{
 							error(parser, peekPrev(parser), "Expected initializer for type-inferenced variable declaration");
@@ -465,26 +608,26 @@ static stmt_t* variableDeclaration(parser_t *parser)
 			stmt_t *stmt = arrayAlloc(stmt_t, &parser->statements);
 			stmt->type = STMT_VAR;
 			stmt->var.name = name;
-			stmt->var.type = type;
+			stmt->var.type = var_type;
 			stmt->var.initializer = initializer;
 			return stmt;
 		};
 	};
 	return NULL;
 };
-static stmt_t* declaration(parser_t *parser)
+static stmt_t* parseDeclaration(parser_t *parser)
 {
 	{
 		const tokenType_t types[] = { TOKEN_LET };
 		if (match(parser, types, static_len(types)))
 		{
-			return variableDeclaration(parser);
+			return parseVariableDeclaration(parser);
 		}
 	}
-	return statement(parser);
+	return parseStatement(parser);
 }
 
-static void printToken(const char *code, const token_t *token)
+static void printToken(const char *code, const token_t *token, bool printLine)
 {
 	char *type;
 	switch (token->type)
@@ -563,12 +706,59 @@ static void printToken(const char *code, const token_t *token)
 		(token->type == TOKEN_STRING) ||
 		(token->type == TOKEN_NUMBER))
 	{
-		printf("[%d:%d]\t:: %s:\"%.*s\"\n", 
-			token->line, token->line_offset, type,
-			token->len, (code+token->start));
+		if (printLine)
+		{
+			printf("[%d:%d]\t:: %s: \"%.*s\"\n",
+				token->line, token->line_offset, 
+				type, token->len, (code+token->start));
+		}else{
+			printf("%s: \"%.*s\"\n", 
+				type, token->len, (code+token->start));
+		}
 	} else {
-		printf("[%d:%d]\t:: %s\n", token->line, token->line_offset, type);
+		if (printLine)
+		{
+			printf("[%d:%d]\t:: %s\n", 
+				token->line, token->line_offset,
+				type);
+		}else{
+			printf("%s\n", type);
+		}
 	}
+};
+static void printType(const type_t *type)
+{
+	const char *type_str;
+	if (type)
+	{
+		switch (type->class)
+		{
+			case TYPE_CLASS_U8:		type_str = "U8"; break; 
+			case TYPE_CLASS_U16:	type_str = "U16"; break; 
+			case TYPE_CLASS_U32:	type_str = "U32"; break; 
+			case TYPE_CLASS_U64:	type_str = "U64"; break;
+			
+			case TYPE_CLASS_I8:		type_str = "I8"; break; 
+			case TYPE_CLASS_I16:	type_str = "I16"; break; 
+			case TYPE_CLASS_I32:	type_str = "I32"; break; 
+			case TYPE_CLASS_I64:	type_str = "I64"; break;
+			
+			case TYPE_CLASS_F32:	type_str = "F32"; break; 
+			case TYPE_CLASS_F64:	type_str = "F64"; break;
+			
+			case TYPE_CLASS_CHAR:	type_str = "CHAR"; break; 
+			case TYPE_CLASS_BOOL:	type_str = "BOOL"; break;
+
+			case TYPE_CLASS_USER: 	type_str = "USER"; break;
+
+			default:
+			case TYPE_CLASS_NONE: 	type_str = "NONE"; break;
+		};
+	} else {
+		// NOTE: For now, implicit types have a NULL type
+		type_str = "IMPLICIT";
+	}
+	printf("TYPE :: %s\n", type_str);
 };
 static void printExpression(const char *code, const expr_t *expr, u32 index)
 {
@@ -593,24 +783,24 @@ static void printExpression(const char *code, const expr_t *expr, u32 index)
 		{
 			printf("EXPR_BINARY\n");
 			printExpression(code, expr->binary.left, (index + 1));
-			for(u32 i = 0; i < index; i++)
+			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->binary.operator);
+			printToken(code, &expr->binary.operator, false);
 			printExpression(code, expr->binary.right, (index + 1));
 		} break;
 		case EXPR_LITERAL:
 		{
 			printf("EXPR_LITERAL\n");
-			for(u32 i = 0; i < index; i++)
+			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->literal.value);
+			printToken(code, &expr->literal.value, false);
 		} break;
 		case EXPR_VARIABLE:
 		{
 			printf("EXPR_VARIABLE\n");
-			for(u32 i = 0; i < index; i++)
+			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->variable.name);
+			printToken(code, &expr->variable.name, false);
 		} break;
 	};
 };
@@ -625,8 +815,9 @@ static void printStatement(const char *code, const stmt_t *stmt)
 		} break;
 		case STMT_VAR:
 		{
-			printToken(code, &stmt->var.name);
-			printToken(code, &stmt->var.type);
+			const token_t *nameToken = &stmt->var.name;
+			printf("NAME :: %.*s\n", nameToken->len, (code+nameToken->start));
+			printType(stmt->var.type);
 			if (stmt->var.initializer)
 			{
 				printExpression(code, stmt->var.initializer, 0);
@@ -645,14 +836,14 @@ i32 parse(const char *code, const token_t *tokens, u32 tokenCount)
 	for (u32 i = 0; i < tokenCount; i++)
 	{
 		const token_t *token = tokens + i;
-		printToken(code, token);
+		printToken(code, token, true);
 	}
 	#else
-	stmt_t *stmt = declaration(&parser);
+	stmt_t *stmt = parseDeclaration(&parser);
 	while (stmt)
 	{
 		printStatement(code, stmt);
-		stmt = declaration(&parser);
+		stmt = parseDeclaration(&parser);
 	};
 	#endif
 
