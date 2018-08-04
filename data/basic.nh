@@ -1,4 +1,10 @@
+// Variable declaration 
 let var n := (64 + 128 - (2434 <= 100) * 290);
+// Constant declaration
 let m:u32 = n + 32;
-
+// Assignment
 n = m + 5;
+// Block 
+{
+	n = 5 + 10;
+}

@@ -70,6 +70,7 @@ typedef enum
 	STMT_NONE,
 	STMT_EXPR,
 	STMT_VAR,
+	STMT_BLOCK,
 } stmtType_t;
 struct stmt_s
 {
@@ -89,7 +90,7 @@ struct stmt_s
 		struct 
 		{
 			arrayOf(stmt_t) statements;
-		} group;
+		} block;
 	};
 };
 

@@ -3,16 +3,16 @@
 declareArrayOf(expr_t);
 declareArrayOf(stmt_t);
 
-static expr_t* addExpression(parser_t *parser)
+static expr_t* addExpression(arrayOf(expr_t) *expressions)
 {
-	expr_t *expr = arrayAlloc(expr_t, &parser->expressions);
+	expr_t *expr = arrayAlloc(expr_t, expressions);
 	assert (expr);
 	zeroMemory(expr, sizeof(expr_t));
 	return expr;
 };
-static stmt_t* addStatement(parser_t *parser)
+static stmt_t* addStatement(arrayOf(stmt_t) *statements)
 {
-	stmt_t *stmt = arrayAlloc(stmt_t, &parser->statements);
+	stmt_t *stmt = arrayAlloc(stmt_t, statements);
 	assert (stmt);
 	zeroMemory(stmt, sizeof(stmt_t));
 	return stmt;
@@ -88,7 +88,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t value = peekPrev(parser);
 
-			expr_t *lit = addExpression(parser);
+			expr_t *lit = addExpression(&parser->expressions);
 			lit->type = EXPR_LITERAL;
 			lit->literal.value = value;
 			return lit;
@@ -101,7 +101,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t name = peekPrev(parser);
 
-			expr_t *lit = addExpression(parser);
+			expr_t *lit = addExpression(&parser->expressions);
 			lit->type = EXPR_VARIABLE;
 			lit->variable.name = name;
 			return lit;
@@ -115,7 +115,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 			expr_t *expr = parseExpression(parser);
 			if (consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression"))
 			{
-				expr_t *group = addExpression(parser);
+				expr_t *group = addExpression(&parser->expressions);
 				group->type = EXPR_GROUP;
 				group->group.expression = expr;
 				return group;
@@ -135,7 +135,7 @@ static expr_t* parseUnaryExpression(parser_t *parser)
 		token_t operator = peekPrev(parser);
 		expr_t *right = parseUnaryExpression(parser);
 
-		expr_t *un = addExpression(parser);
+		expr_t *un = addExpression(&parser->expressions);
 		un->type = EXPR_UNARY;
 		un->unary.operator = operator;
 		un->unary.right = right;
@@ -155,7 +155,7 @@ static expr_t* parseMultiplicationExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseUnaryExpression(parser);
 
-			expr_t *mult = addExpression(parser);
+			expr_t *mult = addExpression(&parser->expressions);
 			mult->type = EXPR_BINARY;
 			mult->binary.left = expr;
 			mult->binary.operator = operator;
@@ -178,7 +178,7 @@ static expr_t* parseAdditionExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseMultiplicationExpression(parser);
 
-			expr_t *add = addExpression(parser);
+			expr_t *add = addExpression(&parser->expressions);
 			add->type = EXPR_BINARY;
 			add->binary.left = expr;
 			add->binary.operator = operator;
@@ -206,7 +206,7 @@ static expr_t* parseComparisonExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseAdditionExpression(parser);
 
-			expr_t *comp = addExpression(parser);
+			expr_t *comp = addExpression(&parser->expressions);
 			comp->type = EXPR_BINARY;
 			comp->binary.left = expr;	
 			comp->binary.operator = operator;	
@@ -229,7 +229,7 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseComparisonExpression(parser);
 			
-			expr_t *eq = addExpression(parser);
+			expr_t *eq = addExpression(&parser->expressions);
 			eq->type = EXPR_BINARY;
 			eq->binary.left = expr;
 			eq->binary.operator = operator;
@@ -255,7 +255,7 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 			{
 				token_t name = expr->variable.name;
 
-				expr_t *new_expr = addExpression(parser);
+				expr_t *new_expr = addExpression(&parser->expressions);
 				new_expr->type = EXPR_ASSIGNMENT;
 				new_expr->assignment.name = name;
 				new_expr->assignment.value = value;
@@ -273,15 +273,15 @@ static expr_t* parseExpression(parser_t *parser)
 	return parseAssignmentExpression(parser);
 };
 
-static stmt_t* parseStatement(parser_t *parser);
-static stmt_t* parseExpressionStatement(parser_t *parser)
+static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements);
+static stmt_t* parseExpressionStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 {
 	expr_t *expr = parseExpression(parser);
 	if (expr)
 	{
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
 		{
-			stmt_t *stmt = addStatement(parser);
+			stmt_t *stmt = addStatement(statements);
 			stmt->type = STMT_EXPR;
 			stmt->expression.expr = expr;
 			return stmt;
@@ -289,12 +289,7 @@ static stmt_t* parseExpressionStatement(parser_t *parser)
 	};
 	return NULL;
 };
-static stmt_t* parseStatement(parser_t *parser)
-{
-	return parseExpressionStatement(parser);
-};
-
-static stmt_t* parseVariableDeclaration(parser_t *parser)
+static stmt_t* parseVariableDeclaration(parser_t *parser, arrayOf(stmt_t) *statements)
 {
 	/* NOTE: There are two types of declaration for variables
 		1.	let <variable_name>:<type> = <initializer>;
@@ -373,7 +368,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration"))
 		{
-			stmt_t *stmt = addStatement(parser);
+			stmt_t *stmt = addStatement(statements);
 			stmt->type = STMT_VAR;
 			stmt->var.name = name;
 			stmt->var.type = type;
@@ -383,17 +378,43 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 	};
 	return NULL;
 };
-static stmt_t* parseDeclaration(parser_t *parser)
+static stmt_t* parseDeclaration(parser_t *parser, arrayOf(stmt_t) *statements)
 {
 	{
 		const tokenType_t types[] = { TOKEN_LET };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseVariableDeclaration(parser);
+			return parseVariableDeclaration(parser, statements);
 		}
 	}
-	return parseStatement(parser);
+	return parseStatement(parser, statements);
 }
+static stmt_t* parseBlockStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+{
+	stmt_t *stmt = addStatement(statements);
+	stmt->type = STMT_BLOCK;
+
+	arrayOf(stmt_t) *inner_statements = &stmt->block.statements;
+	zeroMemory(inner_statements, sizeof(stmt_t));
+	while (!check(parser, TOKEN_CLOSE_BRACE) && !isAtEnd(parser))
+	{
+		parseDeclaration(parser, inner_statements);
+	};
+	return stmt;
+};
+static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+{
+	#if 1
+	{
+		const tokenType_t types[] = { TOKEN_OPEN_BRACE };
+		if (match(parser, types, static_len(types)))
+		{
+			return parseBlockStatement(parser, statements);
+		};
+	}
+	#endif
+	return parseExpressionStatement(parser, statements);
+};
 
 static void printToken(const token_t *token, bool printLine)
 {
@@ -548,25 +569,43 @@ static void printExpression(const expr_t *expr, u32 index)
 		} break;
 	};
 };
-static void printStatement(const stmt_t *stmt)
+static void printStatement(const stmt_t *stmt, u32 index)
 {
+	for (u32 i = 0; i < index; i++)
+		printf("\t");
+	assert (stmt);
 	switch (stmt->type)
 	{
+		default:
 		case STMT_NONE: break;
 		case STMT_EXPR:
 		{
-			printExpression(stmt->expression.expr, 0);
+			printf("STMT_EXPR\n");
+			printExpression(stmt->expression.expr, index);
 		} break;
 		case STMT_VAR:
 		{
+			printf("STMT_VAR\n");
+
 			const token_t *nameToken = &stmt->var.name;
 			printf("NAME :: %.*s\n", nameToken->len, nameToken->start);
 			printToken(&stmt->var.type, false);
 			if (stmt->var.initializer)
 			{
-				printExpression(stmt->var.initializer, 0);
+				printExpression(stmt->var.initializer, index);
 			}
-		};
+		} break;
+		case STMT_BLOCK:
+		{
+			printf("STMT_BLOCK\n");
+			#if 1
+			for (u32 i = 0; i < stmt->block.statements.used; i++)
+			{
+				const stmt_t *next_stmt = stmt->block.statements.data + i;
+				printStatement(next_stmt, index+1);
+			};
+			#endif
+		} break;
 	};
 };
 
@@ -580,20 +619,28 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	for (u32 i = 0; i < tokens->used; i++)
 	{
 		const token_t *token = tokens->data + i;
-		printToken(code, token, true);
+		printToken(token, true);
 	}
 	#else
-	stmt_t *stmt = parseDeclaration(parser);
+	stmt_t *stmt = parseDeclaration(parser, &parser->statements);
 	while (stmt)
 	{
-		printStatement(stmt);
-		stmt = parseDeclaration(parser);
+		printStatement(stmt, 0);
+		stmt = parseDeclaration(parser, &parser->statements);
 	};
 	#endif
 	return PARSER_NO_ERROR;
 }
 void freeParser(parser_t *parser)
 {
+	for (u32 i = 0; i < parser->statements.used; i++)
+	{
+		stmt_t *stmt = parser->statements.data + i;
+		if (stmt->type == STMT_BLOCK)
+		{
+			freeArray(stmt_t, &stmt->block.statements);
+		};
+	};
 	freeArray(stmt_t, &parser->statements);
 	freeArray(expr_t, &parser->expressions);
 };
