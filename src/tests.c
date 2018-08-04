@@ -32,7 +32,7 @@ static MunitResult test_lex_whitespace(const MunitParameter params[], void *data
 {
 	const char *string = "\t\t\nlet\t\tn\n:=\r\r32.0\t;\n";
 	const tokenType_t expected[] = { 
-		TOKEN_LET, TOKEN_IDENTIFIER, TOKEN_COLON_EQUAL, TOKEN_NUMBER, TOKEN_SEMICOLON, 
+		TOKEN_LET, TOKEN_IDENTIFIER, TOKEN_COLON_EQUAL, TOKEN_FLOAT, TOKEN_SEMICOLON, 
 		TOKEN_EOF
 	};
 	return test_lex(string, expected, static_len(expected));
@@ -55,15 +55,21 @@ static MunitResult test_lex_numbers(const MunitParameter params[], void *data)
 	const char *string = "30.0 1231425 143234.032423 0.04324";
 	const tokenType_t expected[] = { 
 		// 30.0
-		TOKEN_NUMBER,
+		TOKEN_FLOAT,
 		// 1231425
-		TOKEN_NUMBER,
+		TOKEN_INTEGER,
 		// 143234.032423
-		TOKEN_NUMBER,
+		TOKEN_FLOAT,
 		// 0.04324
-		TOKEN_NUMBER,
+		TOKEN_FLOAT,
 		TOKEN_EOF
 	};
+	return test_lex(string, expected, static_len(expected));
+};
+static MunitResult test_lex_comments(const MunitParameter params[], void *data)
+{
+	const char *string = "/* Basic */ /* /* Nested */ */ //One line";
+	const tokenType_t expected[] = { TOKEN_EOF };
 	return test_lex(string, expected, static_len(expected));
 };
 
@@ -76,6 +82,8 @@ int run_tests()
 		{ "/lex/whitespace", test_lex_whitespace, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
 		{ "/lex/keywords", test_lex_keywords, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
 		{ "/lex/numbers", test_lex_numbers, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
+		{ "/lex/comments", test_lex_comments, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
+		
 		{ NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL }
 	};
 

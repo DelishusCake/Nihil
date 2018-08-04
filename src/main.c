@@ -23,7 +23,12 @@ static bool compile(const char *code, size_t code_size)
 	if (tokenize(code, code_size, &tokens) == TOKENIZE_NO_ERROR)
 	{
 		// Parse the token stream
-		parse(code, &tokens);
+		parser_t parser = {};
+		if(parse(&parser, code, &tokens) == PARSER_NO_ERROR)
+		{
+			// Free the parser
+			freeParser(&parser);
+		};
 		// Free the token list
 		freeArray(token_t, &tokens);
 	}

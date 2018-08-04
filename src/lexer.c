@@ -295,14 +295,11 @@ static bool parseString(lexer_t *lexer)
 	advance(lexer); // eat the closing quotation mark
 
 	token_t *token = addToken(lexer);
-	if (token)
-	{
-		token->type = TOKEN_STRING;
-		token->start = start;
-		token->len = (end - start);
-		token->line = start_line;
-		token->line_offset = start_line_offset;
-	}
+	token->type = TOKEN_STRING;
+	token->start = start;
+	token->len = (end - start);
+	token->line = start_line;
+	token->line_offset = start_line_offset;
 	return true;
 };
 // Parses integers and floating point literals and adds it to the token list
@@ -311,11 +308,15 @@ static bool parseNumber(lexer_t *lexer)
 	const size_t start = lexer->current-1;
 	const size_t start_line = lexer->line;
 	const size_t start_line_offset = lexer->line_offset-1;
+	
+	tokenType_t type = TOKEN_INTEGER;
+
 	// Eat all digits
 	eatDigits(lexer);
 	// If we've got a dot at the end, it's a float of some kind
 	if (match(lexer, '.'))
 	{
+		type = TOKEN_FLOAT;
 		// Eat digits after the dot too
 		eatDigits(lexer);
 	}
@@ -324,14 +325,11 @@ static bool parseNumber(lexer_t *lexer)
 
 	// Write the token
 	token_t *token = addToken(lexer);
-	if (token)
-	{
-		token->type = TOKEN_NUMBER;
-		token->start = start;
-		token->len = len;
-		token->line = start_line;
-		token->line_offset = start_line_offset;
-	}
+	token->type = type;
+	token->start = start;
+	token->len = len;
+	token->line = start_line;
+	token->line_offset = start_line_offset;
 	return true;
 };
 // Parses identifiers and keywords, adds them to the token list
@@ -353,7 +351,6 @@ static bool parseIdentifier(lexer_t *lexer)
 	const tokenType_t type = getIdentifierType(lexer, start, len);
 
 	token_t *token = addToken(lexer);
-	assert (token);
 	token->type = type;
 	token->line = start_line;
 	token->line_offset = start_line_offset;
