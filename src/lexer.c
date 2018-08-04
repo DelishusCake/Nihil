@@ -60,8 +60,11 @@ static keyword_t g_keywords[] =
 	{ "bool", TOKEN_BOOL },
 	{ "ptr", TOKEN_PTR },
 };
-static bool buildKeywordHash(keywordHash_t *keywordHash)
+static keywordHash_t* buildKeywordHash()
 {
+	keywordHash_t *keywordHash = malloc(sizeof(keywordHash_t));
+	assert (keywordHash);
+	zeroMemory(keywordHash, sizeof(keywordHash_t));
 	for (u32 i = 0; i < static_len(g_keywords); i++)
 	{
 		// Get the keyword, hash it, and convert the hash to an index
@@ -87,7 +90,7 @@ static bool buildKeywordHash(keywordHash_t *keywordHash)
 				if (list->hash[i] == hash)
 				{
 					printf("[ERROR] :: Hash collision! [%d:%d] \n", list, i);
-					return false;
+					return NULL;
 				}
 			};
 			#endif
@@ -98,11 +101,11 @@ static bool buildKeywordHash(keywordHash_t *keywordHash)
 		} else {
 			#if DEBUG
 			printf("[ERROR] :: Too many keywords in index %d\n", index);
-			return false;
+			return NULL;
 			#endif
 		}
 	};
-	return true;
+	return keywordHash;
 };
 
 /* Lexer structure */
@@ -463,20 +466,14 @@ tokenizeError_t tokenize(const char *code, size_t code_len, arrayOf(token_t) *to
 
 	lexer.tokens = tokens;
 
-	lexer.keywordHash = malloc(sizeof(keywordHash_t));
-	if (lexer.keywordHash)
+	lexer.keywordHash = buildKeywordHash();
+	assert (lexer.keywordHash);
+	while (!isAtEnd(&lexer))
 	{
-		zeroMemory(lexer.keywordHash, sizeof(keywordHash_t));
-		if (buildKeywordHash(lexer.keywordHash))
-		{
-			while (!isAtEnd(&lexer))
-			{
-				if (!parseToken(&lexer))
-					return TOKENIZE_ERROR;
-			};
-		}
-		free(lexer.keywordHash);
-	}
+		if (!parseToken(&lexer))
+			return TOKENIZE_ERROR;
+	};
+	free(lexer.keywordHash);
 
 	token_t *eof = addToken(&lexer);
 	if (eof)

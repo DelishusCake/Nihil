@@ -240,9 +240,37 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 	}
 	return expr;
 };
+static expr_t* parseAssignmentExpression(parser_t *parser)
+{
+	expr_t *expr = parseEqualityExpression(parser);
+	if (expr)
+	{
+		const tokenType_t types[] = { TOKEN_EQUAL };
+		if (match(parser, types, static_len(types)))
+		{
+			token_t equals = peekPrev(parser);
+			expr_t *value = parseAssignmentExpression(parser);
+
+			if (expr->type == EXPR_VARIABLE)
+			{
+				token_t name = expr->variable.name;
+
+				expr_t *new_expr = addExpression(parser);
+				new_expr->type = EXPR_ASSIGNMENT;
+				new_expr->assignment.name = name;
+				new_expr->assignment.value = value;
+				return new_expr;
+			} else {
+				error(parser, equals, "Invalid assignment target");
+				return NULL;
+			};
+		}
+	};
+	return expr;
+};
 static expr_t* parseExpression(parser_t *parser)
 {
-	return parseEqualityExpression(parser);
+	return parseAssignmentExpression(parser);
 };
 
 static stmt_t* parseStatement(parser_t *parser);
@@ -265,6 +293,7 @@ static stmt_t* parseStatement(parser_t *parser)
 {
 	return parseExpressionStatement(parser);
 };
+
 static stmt_t* parseVariableDeclaration(parser_t *parser)
 {
 	/* NOTE: There are two types of declaration for variables
@@ -366,7 +395,7 @@ static stmt_t* parseDeclaration(parser_t *parser)
 	return parseStatement(parser);
 }
 
-static void printToken(const char *code, const token_t *token, bool printLine)
+static void printToken(const token_t *token, bool printLine)
 {
 	char *type;
 	switch (token->type)
@@ -467,7 +496,7 @@ static void printToken(const char *code, const token_t *token, bool printLine)
 		}
 	}
 };
-static void printExpression(const char *code, const expr_t *expr, u32 index)
+static void printExpression(const expr_t *expr, u32 index)
 {
 	for(u32 i = 0; i < index; i++)
 		printf("\t");
@@ -480,7 +509,7 @@ static void printExpression(const char *code, const expr_t *expr, u32 index)
 		case EXPR_GROUP:
 		{
 			printf("EXPR_GROUP\n");
-			printExpression(code, expr->group.expression, (index + 1));
+			printExpression(expr->group.expression, (index + 1));
 		} break;
 		case EXPR_UNARY:
 		{
@@ -489,45 +518,53 @@ static void printExpression(const char *code, const expr_t *expr, u32 index)
 		case EXPR_BINARY:
 		{
 			printf("EXPR_BINARY\n");
-			printExpression(code, expr->binary.left, (index + 1));
+			printExpression(expr->binary.left, (index + 1));
 			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->binary.operator, false);
-			printExpression(code, expr->binary.right, (index + 1));
+			printToken(&expr->binary.operator, false);
+			printExpression(expr->binary.right, (index + 1));
 		} break;
 		case EXPR_LITERAL:
 		{
 			printf("EXPR_LITERAL\n");
 			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->literal.value, false);
+			printToken(&expr->literal.value, false);
 		} break;
 		case EXPR_VARIABLE:
 		{
 			printf("EXPR_VARIABLE\n");
 			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(code, &expr->variable.name, false);
+			printToken(&expr->variable.name, false);
+		} break;
+		case EXPR_ASSIGNMENT:
+		{
+			printf("EXPR_ASSIGNMENT\n");
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
+			printToken(&expr->assignment.name, false);
+			printExpression(expr->assignment.value, (index + 1));
 		} break;
 	};
 };
-static void printStatement(const char *code, const stmt_t *stmt)
+static void printStatement(const stmt_t *stmt)
 {
 	switch (stmt->type)
 	{
 		case STMT_NONE: break;
 		case STMT_EXPR:
 		{
-			printExpression(code, stmt->expression.expr, 0);
+			printExpression(stmt->expression.expr, 0);
 		} break;
 		case STMT_VAR:
 		{
 			const token_t *nameToken = &stmt->var.name;
 			printf("NAME :: %.*s\n", nameToken->len, nameToken->start);
-			printToken(code, &stmt->var.type, false);
+			printToken(&stmt->var.type, false);
 			if (stmt->var.initializer)
 			{
-				printExpression(code, stmt->var.initializer, 0);
+				printExpression(stmt->var.initializer, 0);
 			}
 		};
 	};
@@ -549,7 +586,7 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	stmt_t *stmt = parseDeclaration(parser);
 	while (stmt)
 	{
-		printStatement(code, stmt);
+		printStatement(stmt);
 		stmt = parseDeclaration(parser);
 	};
 	#endif

@@ -25,6 +25,7 @@ typedef enum
 	EXPR_BINARY,
 	EXPR_LITERAL,
 	EXPR_VARIABLE,
+	EXPR_ASSIGNMENT,
 } exprType_t;
 struct expr_s
 {
@@ -54,6 +55,11 @@ struct expr_s
 		{
 			token_t name;
 		} variable;
+		struct 
+		{
+			token_t name;
+			expr_t *value;
+		} assignment;
 	};
 	// Free/active list pointer
 	expr_t *next, *prev;
