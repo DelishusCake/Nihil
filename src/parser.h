@@ -13,8 +13,12 @@ struct stmt_s;
 typedef struct expr_s expr_t;
 typedef struct stmt_s stmt_t;
 
-defineArrayOf(expr_t);
-defineArrayOf(stmt_t);
+typedef struct
+{
+	size_t count;
+	size_t size;
+	stmt_t **data;
+} stmtList_t;
 
 /* Abstract Syntax Tree structures */
 typedef enum
@@ -89,7 +93,7 @@ struct stmt_s
 		} var;
 		struct 
 		{
-			arrayOf(stmt_t) statements;
+			stmtList_t statements;
 		} block;
 		struct
 		{
@@ -112,8 +116,9 @@ typedef struct
 	const char *code;
 	const arrayOf(token_t) *tokens;
 
-	arrayOf(stmt_t) statements;
-	arrayOf(expr_t) expressions;
+	linAlloc_t alloc;
+
+	stmtList_t statements;
 } parser_t;
 
 typedef enum

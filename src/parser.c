@@ -1,21 +1,35 @@
 #include "parser.h"
 
-declareArrayOf(expr_t);
-declareArrayOf(stmt_t);
-
-static expr_t* addExpression(arrayOf(expr_t) *expressions)
+static expr_t* allocExpression(linAlloc_t *alloc)
 {
-	expr_t *expr = arrayAlloc(expr_t, expressions);
+	expr_t *expr = (expr_t*) pushLinAlloc(alloc, sizeof(expr_t));
 	assert (expr);
 	zeroMemory(expr, sizeof(expr_t));
 	return expr;
 };
-static stmt_t* addStatement(arrayOf(stmt_t) *statements)
+static stmt_t* allocStatement(linAlloc_t *alloc)
 {
-	stmt_t *stmt = arrayAlloc(stmt_t, statements);
+	stmt_t *stmt = (stmt_t*) pushLinAlloc(alloc, sizeof(stmt_t));
 	assert (stmt);
 	zeroMemory(stmt, sizeof(stmt_t));
 	return stmt;
+};
+
+static void pushStmt(stmtList_t *statements, stmt_t *stmt)
+{
+	if (!statements->size)
+	{
+		statements->count = 0;
+		statements->size = 16;
+		statements->data = malloc(statements->size*sizeof(stmt_t*));
+		assert (statements->data);
+	} else if ((statements->count + 1) >= statements->size) {
+		statements->size <<= 1;
+		statements->data = realloc(statements->data, statements->size*sizeof(stmt_t*));
+		assert (statements->data);
+	};
+	const u32 index = statements->count ++;
+	statements->data[index] = stmt;
 };
 
 static void printToken(const token_t *token, bool printLine)
@@ -205,9 +219,9 @@ static void printStatement(const stmt_t *stmt, u32 index)
 		{
 			printf("STMT_BLOCK\n");
 			#if 1
-			for (u32 i = 0; i < stmt->block.statements.used; i++)
+			for (u32 i = 0; i < stmt->block.statements.count; i++)
 			{
-				const stmt_t *next_stmt = stmt->block.statements.data + i;
+				const stmt_t *next_stmt = stmt->block.statements.data[i];
 				printStatement(next_stmt, index+1);
 			};
 			#endif
@@ -298,7 +312,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t value = peekPrev(parser);
 
-			expr_t *lit = addExpression(&parser->expressions);
+			expr_t *lit = allocExpression(&parser->alloc);
 			lit->type = EXPR_LITERAL;
 			lit->literal.value = value;
 			return lit;
@@ -311,7 +325,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t name = peekPrev(parser);
 
-			expr_t *lit = addExpression(&parser->expressions);
+			expr_t *lit = allocExpression(&parser->alloc);
 			lit->type = EXPR_VARIABLE;
 			lit->variable.name = name;
 			return lit;
@@ -325,7 +339,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 			expr_t *expr = parseExpression(parser);
 			if (consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression"))
 			{
-				expr_t *group = addExpression(&parser->expressions);
+				expr_t *group = allocExpression(&parser->alloc);
 				group->type = EXPR_GROUP;
 				group->group.expression = expr;
 				return group;
@@ -345,7 +359,7 @@ static expr_t* parseUnaryExpression(parser_t *parser)
 		token_t operator = peekPrev(parser);
 		expr_t *right = parseUnaryExpression(parser);
 
-		expr_t *un = addExpression(&parser->expressions);
+		expr_t *un = allocExpression(&parser->alloc);
 		un->type = EXPR_UNARY;
 		un->unary.operator = operator;
 		un->unary.right = right;
@@ -365,7 +379,7 @@ static expr_t* parseMultiplicationExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseUnaryExpression(parser);
 
-			expr_t *mult = addExpression(&parser->expressions);
+			expr_t *mult = allocExpression(&parser->alloc);
 			mult->type = EXPR_BINARY;
 			mult->binary.left = expr;
 			mult->binary.operator = operator;
@@ -388,7 +402,7 @@ static expr_t* parseAdditionExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseMultiplicationExpression(parser);
 
-			expr_t *add = addExpression(&parser->expressions);
+			expr_t *add = allocExpression(&parser->alloc);
 			add->type = EXPR_BINARY;
 			add->binary.left = expr;
 			add->binary.operator = operator;
@@ -415,7 +429,7 @@ static expr_t* parseComparisonExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseAdditionExpression(parser);
 
-			expr_t *comp = addExpression(&parser->expressions);
+			expr_t *comp = allocExpression(&parser->alloc);
 			comp->type = EXPR_BINARY;
 			comp->binary.left = expr;	
 			comp->binary.operator = operator;	
@@ -438,7 +452,7 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseComparisonExpression(parser);
 			
-			expr_t *eq = addExpression(&parser->expressions);
+			expr_t *eq = allocExpression(&parser->alloc);
 			eq->type = EXPR_BINARY;
 			eq->binary.left = expr;
 			eq->binary.operator = operator;
@@ -459,7 +473,7 @@ static expr_t* parseAndExpression(parser_t *parser)
 		token_t operator = peekPrev(parser);
 		expr_t *right = parseAndExpression(parser);
 
-		expr_t *andExp = addExpression(&parser->expressions);
+		expr_t *andExp = allocExpression(&parser->alloc);
 		andExp->type = EXPR_BINARY;
 		andExp->binary.operator = operator;
 		andExp->binary.left = expr;
@@ -478,7 +492,7 @@ static expr_t* parseOrExpression(parser_t *parser)
 		token_t operator = peekPrev(parser);
 		expr_t *right = parseAndExpression(parser);
 
-		expr_t *orExp = addExpression(&parser->expressions);
+		expr_t *orExp = allocExpression(&parser->alloc);
 		orExp->type = EXPR_BINARY;
 		orExp->binary.operator = operator;
 		orExp->binary.left = expr;
@@ -502,7 +516,7 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 			{
 				token_t name = expr->variable.name;
 
-				expr_t *new_expr = addExpression(&parser->expressions);
+				expr_t *new_expr = allocExpression(&parser->alloc);
 				new_expr->type = EXPR_ASSIGNMENT;
 				new_expr->assignment.name = name;
 				new_expr->assignment.value = value;
@@ -520,15 +534,15 @@ static expr_t* parseExpression(parser_t *parser)
 	return parseAssignmentExpression(parser);
 };
 
-static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements);
-static stmt_t* parseExpressionStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseStatement(parser_t *parser);
+static stmt_t* parseExpressionStatement(parser_t *parser)
 {
 	expr_t *expr = parseExpression(parser);
 	if (expr)
 	{
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
 		{
-			stmt_t *stmt = addStatement(statements);
+			stmt_t *stmt = allocStatement(&parser->alloc);
 			stmt->type = STMT_EXPR;
 			stmt->expression.expr = expr;
 			return stmt;
@@ -536,7 +550,7 @@ static stmt_t* parseExpressionStatement(parser_t *parser, arrayOf(stmt_t) *state
 	};
 	return NULL;
 };
-static stmt_t* parseVariableDeclaration(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseVariableDeclaration(parser_t *parser)
 {
 	/* NOTE: There are two types of declaration for variables
 		1.	let <variable_name>:<type> = <initializer>;
@@ -615,7 +629,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser, arrayOf(stmt_t) *state
 
 		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration"))
 		{
-			stmt_t *stmt = addStatement(statements);
+			stmt_t *stmt = allocStatement(&parser->alloc);
 			stmt->type = STMT_VAR;
 			stmt->var.name = name;
 			stmt->var.type = type;
@@ -625,34 +639,33 @@ static stmt_t* parseVariableDeclaration(parser_t *parser, arrayOf(stmt_t) *state
 	};
 	return NULL;
 };
-static stmt_t* parseDeclaration(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseDeclaration(parser_t *parser)
 {
 	{
 		const tokenType_t types[] = { TOKEN_LET };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseVariableDeclaration(parser, statements);
+			return parseVariableDeclaration(parser);
 		}
 	}
-	return parseStatement(parser, statements);
+	return parseStatement(parser);
 }
-static stmt_t* parseBlockStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseBlockStatement(parser_t *parser)
 {
-	stmt_t *stmt = addStatement(statements);
+	stmt_t *stmt = allocStatement(&parser->alloc);
 	stmt->type = STMT_BLOCK;
 
-	arrayOf(stmt_t) *inner_statements = &stmt->block.statements;
-	zeroMemory(inner_statements, sizeof(stmt_t));
+	stmtList_t *statements = &stmt->block.statements;
 	while (!check(parser, TOKEN_CLOSE_BRACE) && !isAtEnd(parser))
 	{
-		parseDeclaration(parser, inner_statements);
+		pushStmt(statements, parseDeclaration(parser));
 	};
 	if (!consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace for block statement"))
 		return NULL;
 	return stmt;
 };
 #if 0
-static stmt_t* parseForStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseForStatement(parser_t *parser, stmtList_t *statements)
 {
 	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
 	// Parse the initializer statement
@@ -703,13 +716,13 @@ static stmt_t* parseForStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 	return stmt;
 };
 #endif
-static stmt_t* parseWhileStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseWhileStatement(parser_t *parser)
 {
 	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
 	expr_t *condition = parseExpression(parser);
 	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
 
-	stmt_t *body = parseStatement(parser, statements);
+	stmt_t *body = parseStatement(parser);
 	if (!body)
 	{
 		token_t last = peekPrev(parser);
@@ -717,20 +730,20 @@ static stmt_t* parseWhileStatement(parser_t *parser, arrayOf(stmt_t) *statements
 		return NULL;
 	};
 
-	stmt_t *stmt = addStatement(statements);
+	stmt_t *stmt = allocStatement(&parser->alloc);
 	stmt->type = STMT_WHILE;
 	stmt->whileLoop.condition = condition;
 	stmt->whileLoop.body = body;
 	return stmt;
 };
-static stmt_t* parseIfStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseIfStatement(parser_t *parser)
 {
 	// TODO: Do we want c-like if statements?
 	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
 	expr_t *condition = parseExpression(parser);
 	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
 
-	stmt_t *thenBranch = parseStatement(parser, statements);
+	stmt_t *thenBranch = parseStatement(parser);
 	if (!thenBranch)
 	{
 		token_t last = peekPrev(parser);
@@ -742,7 +755,7 @@ static stmt_t* parseIfStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 		const tokenType_t types[] = { TOKEN_ELSE };
 		if (match(parser, types, static_len(types)))
 		{
-			elseBranch = parseStatement(parser, statements);
+			elseBranch = parseStatement(parser);
 			if (!elseBranch)
 			{
 				token_t last = peekPrev(parser);
@@ -752,21 +765,21 @@ static stmt_t* parseIfStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 		}
 	}
 
-	stmt_t *stmt = addStatement(statements);
+	stmt_t *stmt = allocStatement(&parser->alloc);
 	stmt->type = STMT_IF;
 	stmt->conditional.condition = condition;
 	stmt->conditional.thenBranch = thenBranch;
 	stmt->conditional.elseBranch = elseBranch;
 	return stmt;
 };
-static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+static stmt_t* parseStatement(parser_t *parser)
 {
 	// Block statement
 	{
 		const tokenType_t types[] = { TOKEN_OPEN_BRACE };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseBlockStatement(parser, statements);
+			return parseBlockStatement(parser);
 		};
 	}
 	// If statement
@@ -774,7 +787,7 @@ static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 		const tokenType_t types[] = { TOKEN_IF };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseIfStatement(parser, statements);
+			return parseIfStatement(parser);
 		};
 	}
 	// While statement
@@ -782,7 +795,7 @@ static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 		const tokenType_t types[] = { TOKEN_WHILE };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseWhileStatement(parser, statements);
+			return parseWhileStatement(parser);
 		};
 	}
 	// For statement
@@ -791,11 +804,11 @@ static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 		const tokenType_t types[] = { TOKEN_FOR };
 		if (match(parser, types, static_len(types)))
 		{
-			return parseForStatement(parser, statements);
+			return parseForStatement(parser);
 		};
 	}
 	#endif
-	return parseExpressionStatement(parser, statements);
+	return parseExpressionStatement(parser);
 };
 
 parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *tokens)
@@ -804,6 +817,11 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	parser->code = code;
 	parser->tokens = tokens;
 
+	size_t size = megabytes(2);
+	u8 *memory = malloc(size);
+
+	initLinAlloc(&parser->alloc, size, memory);
+
 	#if 0
 	for (u32 i = 0; i < tokens->used; i++)
 	{
@@ -811,25 +829,17 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 		printToken(token, true);
 	}
 	#else
-	stmt_t *stmt = parseDeclaration(parser, &parser->statements);
+	stmt_t *stmt = parseDeclaration(parser);
 	while (stmt)
 	{
 		printStatement(stmt, 0);
-		stmt = parseDeclaration(parser, &parser->statements);
+		pushStmt(&parser->statements, stmt);
+		stmt = parseDeclaration(parser);
 	};
 	#endif
 	return PARSER_NO_ERROR;
 }
 void freeParser(parser_t *parser)
 {
-	for (u32 i = 0; i < parser->statements.used; i++)
-	{
-		stmt_t *stmt = parser->statements.data + i;
-		if (stmt->type == STMT_BLOCK)
-		{
-			freeArray(stmt_t, &stmt->block.statements);
-		};
-	};
-	freeArray(stmt_t, &parser->statements);
-	freeArray(expr_t, &parser->expressions);
+	free(parser->alloc.memory);
 };

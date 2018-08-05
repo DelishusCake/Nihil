@@ -182,3 +182,24 @@ u8* loadEntireFile(const char *path, size_t *size)
 	}
 	return result;
 }
+
+void initLinAlloc(linAlloc_t *alloc, size_t size, void *memory)
+{
+	alloc->used = 0;
+	alloc->size = size;
+	alloc->memory = memory;
+};
+void resetLinAlloc(linAlloc_t *alloc)
+{
+	alloc->used = 0;
+};
+void* pushLinAlloc(linAlloc_t *alloc, size_t size)
+{
+	void *ptr = NULL;
+	if ((alloc->used + size) <= alloc->size)
+	{
+		const u32 offset = atomicAddU32(&alloc->used, size);
+		ptr = alloc->memory + offset;
+	};
+	return ptr;
+};

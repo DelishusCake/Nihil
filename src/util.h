@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "core.h"
+#include "intrin.h"
 
 void 	copyMemory(void *dst, const void *src, size_t size);
 void 	zeroMemory(void *dst, size_t size);
@@ -26,6 +27,18 @@ i32 	stringToInt(const char *string, size_t size);
 
 // TODO: Move this
 u8* loadEntireFile(const char *path, size_t *size);
+
+// Simple linear allocator
+typedef struct
+{
+	size_t size;
+	size_t used;
+	u8 *memory;
+} linAlloc_t;
+
+void	initLinAlloc(linAlloc_t *alloc, size_t size, void *memory);
+void*	pushLinAlloc(linAlloc_t *alloc, size_t size);
+void	resetLinAlloc(linAlloc_t *alloc);
 
 // Preprocessor macro for declaring an array of something, i.e. arrayOf_int_t
 #define arrayOf(__type__)			arrayOf_##__type__##_t
