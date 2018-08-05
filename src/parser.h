@@ -70,6 +70,7 @@ typedef enum
 	STMT_VAR,
 	STMT_EXPR,
 	STMT_BLOCK,
+	STMT_WHILE,
 } stmtType_t;
 struct stmt_s
 {
@@ -96,6 +97,11 @@ struct stmt_s
 			stmt_t *thenBranch;
 			stmt_t *elseBranch;
 		} conditional;
+		struct
+		{
+			expr_t *condition;
+			stmt_t *body;
+		} whileLoop;
 	};
 };
 

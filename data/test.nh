@@ -20,7 +20,7 @@ vec4 :: struct
 	x, y, z, w:f32;
 };
 // Operator overloading is supported, but doesn't act as a member function
-+ :: (a:vec4, b:vec4) ->
++ :: (a:vec4, b:vec4) -> vec4
 {
 	// Structs can be declared POD-style, setting each value as needed out of order
 	return vec4
