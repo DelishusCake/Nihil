@@ -61,15 +61,14 @@ struct expr_s
 			expr_t *value;
 		} assignment;
 	};
-	// Free/active list pointer
-	expr_t *next, *prev;
 };
 
 typedef enum
 {
 	STMT_NONE,
-	STMT_EXPR,
+	STMT_IF,
 	STMT_VAR,
+	STMT_EXPR,
 	STMT_BLOCK,
 } stmtType_t;
 struct stmt_s
@@ -91,6 +90,12 @@ struct stmt_s
 		{
 			arrayOf(stmt_t) statements;
 		} block;
+		struct
+		{
+			expr_t *condition;
+			stmt_t *thenBranch;
+			stmt_t *elseBranch;
+		} conditional;
 	};
 };
 

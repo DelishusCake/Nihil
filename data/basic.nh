@@ -4,7 +4,13 @@ let var n := (64 + 128 - (2434 <= 100) * 290);
 let m:u32 = n + 32;
 // Assignment
 n = m + 5;
-// Block 
+// If
+if (n == (m+5))
 {
 	n = 5 + 10;
-}
+} else { n = 2; }
+
+if ((n == 2) || (!true))
+{
+	let r := 32;
+};

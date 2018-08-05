@@ -194,12 +194,11 @@ static expr_t* parseComparisonExpression(parser_t *parser)
 	expr_t *expr = parseAdditionExpression(parser);
 	if (expr)
 	{
-		// Comparison checks for >, >=, <, <=, &&, and ||
+		// Comparison checks for >, >=, <, <=
 		const tokenType_t types[] =
 		{ 
 			TOKEN_GREATER, TOKEN_GREATER_EQUAL, 
-			TOKEN_LESS, TOKEN_LESS_EQUAL,
-			TOKEN_AND_AND, TOKEN_OR_OR 
+			TOKEN_LESS, TOKEN_LESS_EQUAL
 		};
 		while (match(parser, types, static_len(types)))
 		{
@@ -240,9 +239,47 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* parseAssignmentExpression(parser_t *parser)
+static expr_t* parseAndExpression(parser_t *parser)
 {
 	expr_t *expr = parseEqualityExpression(parser);
+
+	const tokenType_t types[] = { TOKEN_AND_AND };
+	while (match(parser, types, static_len(types)))
+	{
+		token_t operator = peekPrev(parser);
+		expr_t *right = parseAndExpression(parser);
+
+		expr_t *andExp = addExpression(&parser->expressions);
+		andExp->type = EXPR_BINARY;
+		andExp->binary.operator = operator;
+		andExp->binary.left = expr;
+		andExp->binary.right = right;
+		expr = andExp;
+	};
+	return expr;
+}
+static expr_t* parseOrExpression(parser_t *parser)
+{
+	expr_t *expr = parseAndExpression(parser);
+
+	const tokenType_t types[] = { TOKEN_OR_OR };
+	while (match(parser, types, static_len(types)))
+	{
+		token_t operator = peekPrev(parser);
+		expr_t *right = parseAndExpression(parser);
+
+		expr_t *orExp = addExpression(&parser->expressions);
+		orExp->type = EXPR_BINARY;
+		orExp->binary.operator = operator;
+		orExp->binary.left = expr;
+		orExp->binary.right = right;
+		expr = orExp;
+	};
+	return expr;
+};
+static expr_t* parseAssignmentExpression(parser_t *parser)
+{
+	expr_t *expr = parseOrExpression(parser);
 	if (expr)
 	{
 		const tokenType_t types[] = { TOKEN_EQUAL };
@@ -402,9 +439,45 @@ static stmt_t* parseBlockStatement(parser_t *parser, arrayOf(stmt_t) *statements
 	};
 	return stmt;
 };
+static stmt_t* parseIfStatement(parser_t *parser, arrayOf(stmt_t) *statements)
+{
+	// TODO: Do we want c-like if statements?
+	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
+	expr_t *condition = parseExpression(parser);
+	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
+
+	stmt_t *thenBranch = parseStatement(parser, statements);
+	if (!thenBranch)
+	{
+		token_t last = peekPrev(parser);
+		error(parser, last, "Expected then clause in if statement");
+		return NULL;
+	};
+	stmt_t *elseBranch = NULL;
+	{
+		const tokenType_t types[] = { TOKEN_ELSE };
+		if (match(parser, types, static_len(types)))
+		{
+			elseBranch = parseStatement(parser, statements);
+			if (!elseBranch)
+			{
+				token_t last = peekPrev(parser);
+				error(parser, last, "Expected else clause after 'else'");
+				return NULL;
+			};
+		};
+	}
+
+	stmt_t *stmt = addStatement(statements);
+	stmt->type = STMT_IF;
+	stmt->conditional.condition = condition;
+	stmt->conditional.thenBranch = thenBranch;
+	stmt->conditional.elseBranch = elseBranch;
+	return stmt;
+};
 static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 {
-	#if 1
+	// Block statement
 	{
 		const tokenType_t types[] = { TOKEN_OPEN_BRACE };
 		if (match(parser, types, static_len(types)))
@@ -412,7 +485,14 @@ static stmt_t* parseStatement(parser_t *parser, arrayOf(stmt_t) *statements)
 			return parseBlockStatement(parser, statements);
 		};
 	}
-	#endif
+	// If statement
+	{
+		const tokenType_t types[] = { TOKEN_IF };
+		if (match(parser, types, static_len(types)))
+		{
+			return parseIfStatement(parser, statements);
+		};
+	}
 	return parseExpressionStatement(parser, statements);
 };
 
@@ -535,6 +615,10 @@ static void printExpression(const expr_t *expr, u32 index)
 		case EXPR_UNARY:
 		{
 			printf("EXPR_UNARY\n");
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
+			printToken(&expr->unary.operator, false);
+			printExpression(expr->unary.right, index+1);
 		} break;
 		case EXPR_BINARY:
 		{
@@ -573,7 +657,6 @@ static void printStatement(const stmt_t *stmt, u32 index)
 {
 	for (u32 i = 0; i < index; i++)
 		printf("\t");
-	assert (stmt);
 	switch (stmt->type)
 	{
 		default:
@@ -586,9 +669,11 @@ static void printStatement(const stmt_t *stmt, u32 index)
 		case STMT_VAR:
 		{
 			printf("STMT_VAR\n");
-
-			const token_t *nameToken = &stmt->var.name;
-			printf("NAME :: %.*s\n", nameToken->len, nameToken->start);
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
+			printToken(&stmt->var.name, false);
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
 			printToken(&stmt->var.type, false);
 			if (stmt->var.initializer)
 			{
@@ -605,6 +690,14 @@ static void printStatement(const stmt_t *stmt, u32 index)
 				printStatement(next_stmt, index+1);
 			};
 			#endif
+		} break;
+		case STMT_IF:
+		{
+			printf("STMT_IF\n");
+			printExpression(stmt->conditional.condition, index);
+			printStatement(stmt->conditional.thenBranch, index+1);
+			if (stmt->conditional.elseBranch) 
+				printStatement(stmt->conditional.elseBranch, index+1);
 		} break;
 	};
 };
