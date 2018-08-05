@@ -14,7 +14,7 @@ if (n == (m+5))
 	// hi
 }
 
-while (true)
+for (let var i := 0; i < 100; i = i + 1)
 {
 	// Nothing!
-};
+}

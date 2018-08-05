@@ -671,8 +671,7 @@ static stmt_t* parseBlockStatement(parser_t *parser)
 		return NULL;
 	return stmt;
 };
-#if 0
-static stmt_t* parseForStatement(parser_t *parser, stmtList_t *statements)
+static stmt_t* parseForStatement(parser_t *parser)
 {
 	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
 	// Parse the initializer statement
@@ -684,9 +683,9 @@ static stmt_t* parseForStatement(parser_t *parser, stmtList_t *statements)
 		{
 			initializer = NULL;
 		} else if (match(parser, types_var, static_len(types_var))) {
-			initializer = parseVariableDeclaration(parser, statements);
+			initializer = parseVariableDeclaration(parser);
 		} else {
-			initializer = parseExpressionStatement(parser, statements);
+			initializer = parseExpressionStatement(parser);
 		}
 	}
 	// Parse the conditional expression
@@ -703,8 +702,8 @@ static stmt_t* parseForStatement(parser_t *parser, stmtList_t *statements)
 		increment = parseExpression(parser);
 	};
 	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
-
-	stmt_t *body = parseStatement(parser, statements);
+	// Get the body
+	stmt_t *body = parseStatement(parser);
 	if (!body)
 	{
 		token_t last = peekPrev(parser);
@@ -713,16 +712,58 @@ static stmt_t* parseForStatement(parser_t *parser, stmtList_t *statements)
 	};
 	// De-sugarization
 	// TODO: Do we need to do this?
+	// Add the increment (if it exists)
+	if (increment != NULL)
 	{
+		stmt_t *stmt = allocStatement(&parser->alloc);
+		stmt->type = STMT_BLOCK;
+		stmtList_t *statements = &stmt->block.statements;
+		// Add the body statement 
+		pushStmt(statements, body);
+		// Add the increment statement
+		stmt_t *inc_stmt = allocStatement(&parser->alloc);
+		inc_stmt->type = STMT_EXPR;
+		inc_stmt->expression.expr = increment;
+		pushStmt(statements, inc_stmt);
+		// Swap the old body with the new one
+		body = stmt;
+	};
+	// Add the condition (or make an infinate loop if there isn't one)
+	{
+		// Without a given condition, it is considered to be an infinate loop
+		if (condition == NULL)
+		{
+			// Make a 'true' token
+			token_t token = {};
+			token.type = TOKEN_TRUE;
+			// Make a new condition expression as a literal 'true'
+			condition = allocExpression(&parser->alloc);
+			condition->type = EXPR_LITERAL;
+			condition->literal.value = token;
+		}
+		// Add a while statement with the conditional and the body
+		stmt_t *stmt = allocStatement(&parser->alloc);
+		stmt->type = STMT_WHILE;
+		stmt->whileLoop.condition = condition;
+		stmt->whileLoop.body = body;
+		// Swap the old body with the new while loop
+		body = stmt;
 	}
-
-	stmt_t *stmt = addStatement(statements);
-	stmt->type = STMT_WHILE;
-	stmt->whileLoop.condition = condition;
-	stmt->whileLoop.body = body;
-	return stmt;
-};
-#endif
+	// Add the initializer (if there is one)
+	if (initializer != NULL)
+	{
+		stmt_t *stmt = allocStatement(&parser->alloc);
+		stmt->type = STMT_BLOCK;
+		stmtList_t *statements = &stmt->block.statements;
+		// Add the initializer statement
+		pushStmt(statements, initializer);
+		// Add the body statement 
+		pushStmt(statements, body);
+		// Swap the old body with the new one
+		body = stmt;
+	};
+	return body;
+}
 static stmt_t* parseWhileStatement(parser_t *parser)
 {
 	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
@@ -806,7 +847,6 @@ static stmt_t* parseStatement(parser_t *parser)
 		};
 	}
 	// For statement
-	#if 0
 	{
 		const tokenType_t types[] = { TOKEN_FOR };
 		if (match(parser, types, static_len(types)))
@@ -814,7 +854,6 @@ static stmt_t* parseStatement(parser_t *parser)
 			return parseForStatement(parser);
 		};
 	}
-	#endif
 	return parseExpressionStatement(parser);
 };
 
