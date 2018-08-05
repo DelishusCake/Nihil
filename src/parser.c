@@ -3,14 +3,14 @@
 static expr_t* allocExpression(linAlloc_t *alloc)
 {
 	expr_t *expr = (expr_t*) pushLinAlloc(alloc, sizeof(expr_t));
-	assert (expr);
+	assert (expr); // TOOD: Handle reallocating the linear allocator on failed allocation
 	zeroMemory(expr, sizeof(expr_t));
 	return expr;
 };
 static stmt_t* allocStatement(linAlloc_t *alloc)
 {
 	stmt_t *stmt = (stmt_t*) pushLinAlloc(alloc, sizeof(stmt_t));
-	assert (stmt);
+	assert (stmt); // TOOD: Handle reallocating the linear allocator on failed allocation
 	zeroMemory(stmt, sizeof(stmt_t));
 	return stmt;
 };
@@ -30,6 +30,13 @@ static void pushStmt(stmtList_t *statements, stmt_t *stmt)
 	};
 	const u32 index = statements->count ++;
 	statements->data[index] = stmt;
+};
+static void freeStmtList(stmtList_t *statements)
+{
+	if (statements->data)
+	{
+		free(statements->data);
+	};
 };
 
 static void printToken(const token_t *token, bool printLine)
@@ -817,7 +824,8 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	parser->code = code;
 	parser->tokens = tokens;
 
-	size_t size = megabytes(2);
+	// Two megabytes is enough for everybody, right?
+	const size_t size = megabytes(2); 
 	u8 *memory = malloc(size);
 
 	initLinAlloc(&parser->alloc, size, memory);
@@ -841,5 +849,15 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 }
 void freeParser(parser_t *parser)
 {
+	stmtList_t *statements = &parser->statements;
+	for (u32 i = 0; i < statements->count; i++)
+	{
+		stmt_t *stmt = statements->data[i];
+		if (stmt->type == STMT_BLOCK)
+		{
+			freeStmtList(&stmt->block.statements);
+		};
+	};
+	freeStmtList(statements);
 	free(parser->alloc.memory);
 };

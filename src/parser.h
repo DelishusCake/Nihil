@@ -13,6 +13,10 @@ struct stmt_s;
 typedef struct expr_s expr_t;
 typedef struct stmt_s stmt_t;
 
+/* List of statements
+ * NOTE: Both statements and expressions are allocated internally, and should not be accessd 
+ * after a call to freeParser
+ */
 typedef struct
 {
 	size_t count;
