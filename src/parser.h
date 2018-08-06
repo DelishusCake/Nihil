@@ -6,6 +6,9 @@
 
 #include "lexer.h"
 
+// Maximum number of arguments that can be passed to a single function call 
+#define MAX_ARGUMENTS		64
+
 // Pre-declare types 
 struct expr_s; 
 struct stmt_s;
@@ -24,10 +27,19 @@ typedef struct
 	stmt_t **data;
 } stmtList_t;
 
+/* List of expressions */
+typedef struct
+{
+	size_t count;
+	size_t size;
+	expr_t **data;
+} exprList_t;
+
 /* Abstract Syntax Tree structures */
 typedef enum
 {
 	EXPR_NONE,
+	EXPR_CALL,
 	EXPR_GROUP,
 	EXPR_UNARY,
 	EXPR_BINARY,
@@ -40,6 +52,11 @@ struct expr_s
 	exprType_t type;
 	union
 	{
+		struct
+		{
+			expr_t *callee;
+			exprList_t args;
+		} call;
 		struct
 		{
 			expr_t *expression;

@@ -5,7 +5,6 @@ let var n := (64 + 128 - (2434 <= 100) * 290);
 let m:u32 = n + 32;
 // Assignment
 n = m + 5;
-*/
 // If
 if (n == (m+5))
 {
@@ -18,3 +17,6 @@ for (let var i:u32 = 0; i < 100; i = i + 1)
 {
 	// Nothing!
 }
+*/
+
+let n:u32 = add(1, 2);

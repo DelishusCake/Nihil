@@ -1,5 +1,6 @@
 #include "parser.h"
 
+/* Memory management */
 static expr_t* allocExpression(linAlloc_t *alloc)
 {
 	expr_t *expr = (expr_t*) pushLinAlloc(alloc, sizeof(expr_t));
@@ -15,6 +16,7 @@ static stmt_t* allocStatement(linAlloc_t *alloc)
 	return stmt;
 };
 
+/* Statment/Expression list functions */
 static void pushStmt(stmtList_t *statements, stmt_t *stmt)
 {
 	if (!statements->size)
@@ -51,6 +53,47 @@ static void freeStmtList(stmtList_t *statements)
 	};
 };
 
+static void pushExpr(exprList_t *expressions, expr_t *expr)
+{
+	if (!expressions->size)
+	{
+		expressions->count = 0;
+		expressions->size = 16;
+		expressions->data = malloc(expressions->size*sizeof(expr_t*));
+		assert (expressions->data);
+	} else if ((expressions->count + 1) >= expressions->size) {
+		expressions->size <<= 1;
+		expressions->data = realloc(expressions->data, expressions->size*sizeof(expr_t*));
+		assert (expressions->data);
+	};
+	const u32 index = expressions->count ++;
+	expressions->data[index] = expr;
+};
+#if 0
+static void freeExprList(exprList_t *expressions)
+{
+	if (expressions->data)
+	{
+		#if 0
+		// Recursively free all inner expression lists
+		for (u32 i = 0; i < expressions->count; i++)
+		{
+			expr_t *stmt = expressions->data[i];
+			if (stmt->type == STMT_BLOCK)
+			{
+				freeStmtList(&stmt->block.expressions);
+			};
+		};
+		#endif
+		// Free the actual array
+		free(expressions->data);
+		// Zero the structure, just in case
+		zeroMemory(expressions, sizeof(exprList_t));
+	};
+};
+#endif
+
+/* Debug functions */
 static void printToken(const token_t *token, bool printLine)
 {
 	char *type;
@@ -162,6 +205,17 @@ static void printExpression(const expr_t *expr, u32 index)
 		{
 			printf("EXPR_NONE\n");
 		} break;
+		case EXPR_CALL:
+		{
+			printf("EXPR_CALL\n");
+			printExpression(expr->call.callee, index+1);
+
+			const exprList_t *args = &expr->call.args;
+			for (u32 i = 0; i < args->count; i++)
+			{
+				printExpression(args->data[i], index+1);
+			}
+		} break;
 		case EXPR_GROUP:
 		{
 			printf("EXPR_GROUP\n");
@@ -231,7 +285,7 @@ static void printStatement(const stmt_t *stmt, u32 index)
 			printToken(&stmt->var.type, false);
 			if (stmt->var.initializer)
 			{
-				printExpression(stmt->var.initializer, index);
+				printExpression(stmt->var.initializer, index+1);
 			}
 		} break;
 		case STMT_BLOCK:
@@ -266,6 +320,7 @@ static void error(const parser_t *parser, token_t token, const char *msg)
 	printf("ERROR [%d:%d] ::%s\n", token.line, token.line_offset, msg);
 };
 
+/* Parsing controls */
 static token_t peek(const parser_t *parser)
 {
 	return parser->tokens->data[parser->current];
@@ -369,6 +424,49 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 	}
 	return NULL;
 };
+static expr_t* parseCallExpression(parser_t *parser)
+{
+	expr_t *expr = parsePrimaryExpression(parser);
+	if (expr)
+	{
+		while (true)
+		{
+			const tokenType_t open_types[] = { TOKEN_OPEN_PAREN };
+			if (match(parser, open_types, static_len(open_types)))
+			{
+				// Allocate a new call expression
+				expr_t *call_expr = allocExpression(&parser->alloc);
+				call_expr->type = EXPR_CALL;
+				call_expr->call.callee = expr;
+				// Push arguments to the args list
+				exprList_t *args = &call_expr->call.args;
+				if (!check(parser, TOKEN_CLOSE_PAREN))
+				{
+					const tokenType_t next_types[] = { TOKEN_COMMA };
+					do
+					{
+						if ((args->count + 1) >= MAX_ARGUMENTS)
+						{
+							error(parser, peek(parser), "Cannot have more than "stringify(MAX_ARGUMENTS)" arguments per function call.");
+							return NULL;
+						};
+						pushExpr(args, parseExpression(parser));
+					} while (match(parser, next_types, static_len(next_types)));
+				}
+				// Consume the closing parenthesis
+				if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close function call"))
+				{
+					return NULL;
+				}
+				// Iterate 
+				expr = call_expr;
+			} else {
+				break;
+			}
+		};
+	}
+	return expr;
+};
 static expr_t* parseUnaryExpression(parser_t *parser)
 {
 	// Unary checks for '!' and '-'
@@ -384,7 +482,7 @@ static expr_t* parseUnaryExpression(parser_t *parser)
 		un->unary.right = right;
 		return un;
 	};
-	return parsePrimaryExpression(parser); 
+	return parseCallExpression(parser); 
 };
 static expr_t* parseMultiplicationExpression(parser_t *parser)
 {
@@ -485,39 +583,43 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 static expr_t* parseAndExpression(parser_t *parser)
 {
 	expr_t *expr = parseEqualityExpression(parser);
-
-	const tokenType_t types[] = { TOKEN_AND_AND };
-	while (match(parser, types, static_len(types)))
+	if (expr)
 	{
-		token_t operator = peekPrev(parser);
-		expr_t *right = parseAndExpression(parser);
+		const tokenType_t types[] = { TOKEN_AND_AND };
+		while (match(parser, types, static_len(types)))
+		{
+			token_t operator = peekPrev(parser);
+			expr_t *right = parseAndExpression(parser);
 
-		expr_t *andExp = allocExpression(&parser->alloc);
-		andExp->type = EXPR_BINARY;
-		andExp->binary.operator = operator;
-		andExp->binary.left = expr;
-		andExp->binary.right = right;
-		expr = andExp;
-	};
+			expr_t *andExp = allocExpression(&parser->alloc);
+			andExp->type = EXPR_BINARY;
+			andExp->binary.operator = operator;
+			andExp->binary.left = expr;
+			andExp->binary.right = right;
+			expr = andExp;
+		};
+	}
 	return expr;
 }
 static expr_t* parseOrExpression(parser_t *parser)
 {
 	expr_t *expr = parseAndExpression(parser);
-
-	const tokenType_t types[] = { TOKEN_OR_OR };
-	while (match(parser, types, static_len(types)))
+	if (expr)
 	{
-		token_t operator = peekPrev(parser);
-		expr_t *right = parseAndExpression(parser);
+		const tokenType_t types[] = { TOKEN_OR_OR };
+		while (match(parser, types, static_len(types)))
+		{
+			token_t operator = peekPrev(parser);
+			expr_t *right = parseAndExpression(parser);
 
-		expr_t *orExp = allocExpression(&parser->alloc);
-		orExp->type = EXPR_BINARY;
-		orExp->binary.operator = operator;
-		orExp->binary.left = expr;
-		orExp->binary.right = right;
-		expr = orExp;
-	};
+			expr_t *orExp = allocExpression(&parser->alloc);
+			orExp->type = EXPR_BINARY;
+			orExp->binary.operator = operator;
+			orExp->binary.left = expr;
+			orExp->binary.right = right;
+			expr = orExp;
+		};
+	}
 	return expr;
 };
 static expr_t* parseAssignmentExpression(parser_t *parser)

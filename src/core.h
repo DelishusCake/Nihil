@@ -61,4 +61,6 @@ typedef double f64;
 #define heap_left(i)	((i << 1) + 1)
 #define heap_right(i)	((i << 1) + 2)
 
+#define stringify(n)	#n
+
 #endif
