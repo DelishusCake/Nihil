@@ -35,7 +35,19 @@ static void freeStmtList(stmtList_t *statements)
 {
 	if (statements->data)
 	{
+		// Recursively free all inner block statements
+		for (u32 i = 0; i < statements->count; i++)
+		{
+			stmt_t *stmt = statements->data[i];
+			if (stmt->type == STMT_BLOCK)
+			{
+				freeStmtList(&stmt->block.statements);
+			};
+		};
+		// Free the actual array
 		free(statements->data);
+		// Zero the structure, just in case
+		zeroMemory(statements, sizeof(stmtList_t));
 	};
 };
 
@@ -888,15 +900,6 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 }
 void freeParser(parser_t *parser)
 {
-	stmtList_t *statements = &parser->statements;
-	for (u32 i = 0; i < statements->count; i++)
-	{
-		stmt_t *stmt = statements->data[i];
-		if (stmt->type == STMT_BLOCK)
-		{
-			freeStmtList(&stmt->block.statements);
-		};
-	};
-	freeStmtList(statements);
+	freeStmtList(&parser->statements);
 	free(parser->alloc.memory);
 };
