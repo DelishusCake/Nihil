@@ -39,7 +39,7 @@ typedef enum
 	TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
 	TOKEN_F32, TOKEN_F64,
 	TOKEN_CHAR, TOKEN_BOOL,
-	TOKEN_PTR,
+	TOKEN_PTR, TOKEN_VOID,
 } tokenType_t;
 typedef struct
 {

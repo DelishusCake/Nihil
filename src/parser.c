@@ -93,6 +93,23 @@ static void freeExprList(exprList_t *expressions)
 };
 #endif
 
+static varDecl_t* pushVarDecl(argList_t *arguments)
+{
+	if (!arguments->size)
+	{
+		arguments->count = 0;
+		arguments->size = 16;
+		arguments->data = malloc(arguments->size*sizeof(varDecl_t));
+		assert (arguments->data);
+	} else if ((arguments->count + 1) >= arguments->size) {
+		arguments->size <<= 1;
+		arguments->data = realloc(arguments->data, arguments->size*sizeof(varDecl_t));
+		assert (arguments->data);
+	};
+	const u32 index = arguments->count ++;
+	return arguments->data + index;
+};
+
 /* Debug functions */
 static void printToken(const token_t *token, bool printLine)
 {
@@ -166,6 +183,7 @@ static void printToken(const token_t *token, bool printLine)
 		case TOKEN_CHAR: type = "CHAR"; break;
 		case TOKEN_BOOL: type = "BOOL"; break;
 		case TOKEN_PTR: type = "PTR"; break;
+		case TOKEN_VOID: type = "VOID"; break;
 		// Unknown (to make the compiler shut up)
 		default: type = "UNKNOWN"; break;
 	};
@@ -279,10 +297,10 @@ static void printStatement(const stmt_t *stmt, u32 index)
 			printf("STMT_VAR\n");
 			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(&stmt->var.name, false);
+			printToken(&stmt->var.decl.name, false);
 			for(u32 i = 0; i < index+1; i++)
 				printf("\t");
-			printToken(&stmt->var.type, false);
+			printToken(&stmt->var.decl.type, false);
 			if (stmt->var.initializer)
 			{
 				printExpression(stmt->var.initializer, index+1);
@@ -312,6 +330,35 @@ static void printStatement(const stmt_t *stmt, u32 index)
 			printf("STMT_WHILE\n");
 			printExpression(stmt->whileLoop.condition, index);
 			printStatement(stmt->whileLoop.body, index+1);
+		} break;
+		case STMT_RETURN:
+		{
+			printf("STMT_RETURN\n");
+			printExpression(stmt->ret.value, index);
+		} break;
+		case STMT_FUNCTION:
+		{
+			printf("STMT_FUNCTION\n");
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
+			printToken(&stmt->function.name, false);
+
+			const argList_t *args = &stmt->function.arguments;
+			for (u32 n = 0; n < args->count; n++)
+			{
+				for(u32 i = 0; i < index+2; i++)
+					printf("\t");
+				printToken(&args->data[n].name, false);
+				for(u32 i = 0; i < index+2; i++)
+					printf("\t");
+				printToken(&args->data[n].type, false);
+			};
+
+			for(u32 i = 0; i < index+1; i++)
+				printf("\t");
+			printToken(&stmt->function.type, false);
+
+			printStatement(stmt->function.body, index+1);
 		} break;
 	};
 };
@@ -759,26 +806,76 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 		{
 			stmt_t *stmt = allocStatement(&parser->alloc);
 			stmt->type = STMT_VAR;
-			stmt->var.name = name;
-			stmt->var.type = type;
+			stmt->var.decl.name = name;
+			stmt->var.decl.type = type;
 			stmt->var.initializer = initializer;
 			return stmt;
 		};
 	};
 	return NULL;
 };
-#if 0
 static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 {
-	
-	if (!consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace"))
+	// Parse argument list
+	argList_t arguments = {};
+	if (!check(parser, TOKEN_CLOSE_PAREN))
 	{
+		const tokenType_t comma_types[] = { TOKEN_COMMA };
+		do 
+		{
+			if (arguments.count >= MAX_ARGUMENTS)
+			{
+				error(parser, peek(parser), "Too many arguments for function declaration");
+				return NULL;
+			}
+
+			token_t name = advance(parser);
+			if (name.type != TOKEN_IDENTIFIER)
+			{
+				error(parser, name, "Expected identifier");
+				return NULL;
+			}
+			if (!consume(parser, TOKEN_COLON, "Expected comma-separator"))
+			{
+				return NULL;
+			}
+			// TODO: Type system
+			token_t type = advance(parser);
+
+			varDecl_t *decl = pushVarDecl(&arguments);
+			decl->name = name;
+			decl->type = type;
+		} while(match(parser, comma_types, static_len(comma_types)));
+	};
+	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis"))
+		return NULL;
+	// Parse return type
+	token_t type = {};
+	const tokenType_t types[] = { TOKEN_ARROW };
+	if (match(parser, types, static_len(types)))
+	{
+		// TODO: Type system
+		type = advance(parser);
+	} else {
+		type.type = TOKEN_VOID;
+	}
+
+	// Parse the body
+	stmt_t *body = parseStatement(parser);
+	if (!body)
+	{
+		error(parser, peek(parser), "Expected statement for function body");
 		return NULL;
 	}
 
-
+	stmt_t *stmt = allocStatement(&parser->alloc);
+	stmt->type = STMT_FUNCTION;
+	stmt->function.name = name;
+	stmt->function.type = type;
+	stmt->function.arguments = arguments;
+	stmt->function.body = body;
+	return stmt;
 };
-#endif
 static stmt_t* parseDeclaration(parser_t *parser)
 {
 	// Parse a variable declaration
@@ -790,7 +887,6 @@ static stmt_t* parseDeclaration(parser_t *parser)
 		}
 	}
 	// Parse a function/struct/union/enum declaration
-	#if 0
 	{
 		const tokenType_t func_types[] = { TOKEN_OPEN_PAREN };
 		
@@ -807,7 +903,6 @@ static stmt_t* parseDeclaration(parser_t *parser)
 			};
 		};
 	}
-	#endif
 	return parseStatement(parser);
 }
 static stmt_t* parseBlockStatement(parser_t *parser)
@@ -973,6 +1068,21 @@ static stmt_t* parseIfStatement(parser_t *parser)
 	stmt->conditional.elseBranch = elseBranch;
 	return stmt;
 };
+static stmt_t* parseReturnStatement(parser_t *parser)
+{
+	expr_t *value = NULL;
+	if (!check(parser, TOKEN_SEMICOLON))
+	{
+		value = parseExpression(parser);
+	};
+	if (!consume(parser, TOKEN_SEMICOLON, "Expected ';' after return statement"))
+		return NULL;
+
+	stmt_t *stmt = allocStatement(&parser->alloc);
+	stmt->type = STMT_RETURN;
+	stmt->ret.value = value;
+	return stmt;
+};
 static stmt_t* parseStatement(parser_t *parser)
 {
 	// Block statement
@@ -1005,6 +1115,14 @@ static stmt_t* parseStatement(parser_t *parser)
 		if (match(parser, types, static_len(types)))
 		{
 			return parseForStatement(parser);
+		};
+	}
+	// Return statement
+	{
+		const tokenType_t types[] = { TOKEN_RETURN };
+		if (match(parser, types, static_len(types)))
+		{
+			return parseReturnStatement(parser);
 		};
 	}
 	return parseExpressionStatement(parser);

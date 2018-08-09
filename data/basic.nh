@@ -1,1 +1,5 @@
-let r:i32 = 5;
+main :: (i:u32) -> u32
+{
+	let r:i32 = 5;
+	return r;
+}
