@@ -332,6 +332,13 @@ static token_t peekPrev(const parser_t *parser)
 		index = index - 1;
 	return parser->tokens->data[index];
 };
+static token_t peekNext(const parser_t *parser)
+{
+	i32 index = parser->current;
+	if (index < parser->tokens->used)
+		index = index + 1;
+	return parser->tokens->data[index];
+};
 static inline bool isAtEnd(const parser_t *parser)
 {
 	token_t token = peek(parser);
@@ -760,8 +767,21 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 	};
 	return NULL;
 };
+#if 0
+static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
+{
+	
+	if (!consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace"))
+	{
+		return NULL;
+	}
+
+
+};
+#endif
 static stmt_t* parseDeclaration(parser_t *parser)
 {
+	// Parse a variable declaration
 	{
 		const tokenType_t types[] = { TOKEN_LET };
 		if (match(parser, types, static_len(types)))
@@ -769,6 +789,25 @@ static stmt_t* parseDeclaration(parser_t *parser)
 			return parseVariableDeclaration(parser);
 		}
 	}
+	// Parse a function/struct/union/enum declaration
+	#if 0
+	{
+		const tokenType_t func_types[] = { TOKEN_OPEN_PAREN };
+		
+		if (peekNext(parser).type == TOKEN_COLON_COLON)
+		{
+			token_t name = advance(parser); // Get the name
+			advance(parser); //Eat the colon_colon
+			if (match(parser, func_types, static_len(func_types)))
+			{
+				return parseFunctionDeclaration(parser, name);
+			} else {
+				error(parser, peek(parser), "Unknown definition type");
+				return NULL;
+			};
+		};
+	}
+	#endif
 	return parseStatement(parser);
 }
 static stmt_t* parseBlockStatement(parser_t *parser)
