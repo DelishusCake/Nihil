@@ -215,8 +215,8 @@ static void addTokenNoValue(lexer_t *lexer, tokenType_t type)
 	assert (token);
 
 	token->type = type;
-	token->start = NULL;
-	token->len = 0;
+	token->start = lexer->code + (lexer->current-1);
+	token->len = 1;
 	token->line = lexer->line;
 	token->line_offset = lexer->line_offset;
 };

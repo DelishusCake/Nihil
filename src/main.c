@@ -8,6 +8,7 @@
 
 #include "lexer.h"
 #include "parser.h"
+#include "output_c.h"
 
 static void help()
 {
@@ -26,6 +27,8 @@ static bool compile(const char *code, size_t code_size)
 		parser_t parser = {};
 		if(parse(&parser, code, &tokens) == PARSER_NO_ERROR)
 		{
+			output_c(&parser);
+
 			// Free the parser
 			freeParser(&parser);
 		};

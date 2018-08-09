@@ -1150,7 +1150,7 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	stmt_t *stmt = parseDeclaration(parser);
 	while (stmt)
 	{
-		printStatement(stmt, 0);
+		//printStatement(stmt, 0);
 		pushStmt(&parser->statements, stmt);
 		stmt = parseDeclaration(parser);
 	};

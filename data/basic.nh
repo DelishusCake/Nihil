@@ -1,5 +1,1 @@
-main :: (i:u32) -> u32
-{
-	let r:i32 = 5;
-	return r;
-}
+let n:u32 = !(5 + 2);
