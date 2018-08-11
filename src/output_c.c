@@ -1,11 +1,75 @@
 #include "output_c.h"
 
-static void indent(u32 count)
+typedef struct
+{
+	size_t used;
+	size_t size;
+	char *data;
+} buffer_t;
+
+static void allocBuffer(buffer_t *buffer, size_t initial)
+{
+	buffer->used = 0;
+	buffer->size = initial;
+	buffer->data = malloc(initial*sizeof(char));
+	assert(buffer->data);
+};
+static void freeBuffer(buffer_t *buffer)
+{
+	buffer->used = buffer->size = 0;
+	free(buffer->data);
+};
+static char* pushBytes(buffer_t *buffer, size_t len)
+{
+	if ((buffer->used + len) > buffer->size)
+	{
+		buffer->size <<= 1;
+		buffer->data = realloc(buffer->data, buffer->size*sizeof(char));
+		assert(buffer->data);
+	};
+	char *ptr = buffer->data + buffer->used;
+	buffer->used += len;
+	return ptr;
+};
+static void printBuffer(buffer_t *buffer)
+{
+	puts(buffer->data);
+};
+static void saveBuffer(buffer_t *buffer, const char *filename)
+{
+	FILE *f = fopen(filename, "wb");
+	if (f)
+	{
+		fputs(buffer->data, f);
+		fclose(f);
+	};
+};
+
+static void writeStringLen(buffer_t *buffer, const char *str, size_t len)
+{
+	char *ptr = pushBytes(buffer, len*sizeof(char));
+	memcpy(ptr, str, len*sizeof(char));
+};
+static void writeString(buffer_t *buffer, const char *str)
+{
+	const size_t len = strlen(str);
+	writeStringLen(buffer, str, len);
+};
+static void writeChar(buffer_t *buffer, char c)
+{
+	writeStringLen(buffer, &c, 1);
+};
+static void writeEOF(buffer_t *buffer)
+{
+	writeChar(buffer, '\0');
+};
+
+static void indent(buffer_t *buffer, u32 count)
 {
 	for (u32 i = 0; i < count; i++)
-		printf("\t");
+		writeChar(buffer, '\t');
 }
-static void output_token(const token_t *token)
+static void output_token(buffer_t *buffer, const token_t *token)
 {
 	char *str = NULL;
 	switch (token->type)
@@ -69,28 +133,32 @@ static void output_token(const token_t *token)
 	};
 	if (str)
 	{
-		printf(str);
+		writeString(buffer, str);
 	} else {
-		printf("%.*s", token->len, token->start);
+		if (token->type == TOKEN_STRING)
+			writeChar(buffer, '"');
+		writeStringLen(buffer, token->start, token->len);
+		if (token->type == TOKEN_STRING)
+			writeChar(buffer, '"');
 	}
 };
-static void output_expression(const expr_t *expr)
+static void output_expression(buffer_t *buffer, const expr_t *expr)
 {
 	switch(expr->type)
 	{
 		case EXPR_GROUP:
 		{
-			printf("(");
-			output_expression(expr->group.expression);
-			printf(")");
+			writeChar(buffer, '(');
+			output_expression(buffer, expr->group.expression);
+			writeChar(buffer, ')');
 		} break;
 		case EXPR_UNARY:
 		{
 			const token_t *operator = &expr->unary.operator; 
 			const expr_t *right = expr->unary.right; 
 
-			output_token(operator);
-			output_expression(right);
+			output_token(buffer, operator);
+			output_expression(buffer, right);
 		} break;
 		case EXPR_BINARY:
 		{
@@ -98,150 +166,173 @@ static void output_expression(const expr_t *expr)
 			const expr_t *left = expr->binary.left; 
 			const expr_t *right = expr->binary.right; 
 
-			output_expression(left);
-			output_token(operator);
-			output_expression(right);
+			output_expression(buffer, left);
+			output_token(buffer, operator);
+			output_expression(buffer, right);
 		} break;
 		case EXPR_LITERAL:
 		{
 			const token_t *value = &expr->literal.value; 
-			output_token(value);
+			output_token(buffer, value);
 		} break;
 		case EXPR_VARIABLE:
 		{
 			const token_t *name = &expr->variable.name;
-			output_token(name);
+			output_token(buffer, name);
 		} break;
 		case EXPR_ASSIGNMENT:
 		{
 			const token_t *name = &expr->assignment.name;
-			output_token(name);
-			printf(" = ");
-			output_expression(expr->assignment.value);
+			output_token(buffer, name);
+			writeString(buffer, " = ");
+			output_expression(buffer, expr->assignment.value);
+		} break;
+		case EXPR_CALL:
+		{
+			output_expression(buffer, expr->call.callee);
+			writeChar(buffer, '(');
+			for (u32 i = 0; i < expr->call.args.count; i++)
+			{
+				output_expression(buffer, expr->call.args.data[i]);
+				if (i != (expr->call.args.count-1))
+					writeString(buffer, ", ");
+			};
+			writeChar(buffer, ')');
 		} break;
 
-		default: printf("ERROR NOT IMPLEMENTED\n"); break;
+		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
 	};
 };
-static void output_statement(const stmt_t *stmt, u32 index)
+static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
-	indent(index);
+	indent(buffer, index);
 	switch(stmt->type)
 	{
 		case STMT_NONE: break;
 		case STMT_VAR:
 		{
-			output_token(&stmt->var.decl.type);
-			printf(" ");
-			output_token(&stmt->var.decl.name);
+			output_token(buffer, &stmt->var.decl.type);
+			writeChar(buffer, ' ');
+			output_token(buffer, &stmt->var.decl.name);
 			if (stmt->var.initializer)
 			{
-				printf(" = ");
-				output_expression(stmt->var.initializer);
+				writeString(buffer, " = ");
+				output_expression(buffer, stmt->var.initializer);
 			}
-			printf(";\n");
+			writeString(buffer, ";\n");
 		} break;
 		case STMT_EXPR:
 		{
-			output_expression(stmt->expression.expr);
-			printf(";\n");
+			output_expression(buffer, stmt->expression.expr);
+			writeString(buffer, ";\n");
 		} break;
 		case STMT_BLOCK:
 		{
-			printf("{\n");
+			writeString(buffer, "{\n");
 			for (u32 i = 0; i < stmt->block.statements.count; ++i)
 			{
-				output_statement(stmt->block.statements.data[i], index+1);
+				output_statement(buffer, stmt->block.statements.data[i], index+1);
 			}
-			indent(index);
-			printf("}\n");
+			indent(buffer, index);
+			writeString(buffer, "}\n");
 		} break;
 		case STMT_IF:
 		{
-			printf("if (");
-			output_expression(stmt->conditional.condition);
-			printf("){\n");
-			output_statement(stmt->conditional.thenBranch, index+1);
-			printf("\n");
+			writeString(buffer, "if (");
+			output_expression(buffer, stmt->conditional.condition);
+			writeString(buffer, "){\n");
+			output_statement(buffer, stmt->conditional.thenBranch, index+1);
+			writeString(buffer, "\n");
 			if (stmt->conditional.elseBranch)
 			{
-				indent(index);
-				printf("}else{\n");
-				output_statement(stmt->conditional.elseBranch, index+1);
+				indent(buffer, index);
+				writeString(buffer, "}else{\n");
+				output_statement(buffer, stmt->conditional.elseBranch, index+1);
 			};
-			indent(index);
-			printf("}\n");
+			indent(buffer, index);
+			writeString(buffer, "}\n");
 		} break;
 		case STMT_RETURN:
 		{
-			printf("return ");
-			output_expression(stmt->ret.value);
-			printf(";\n");
+			writeString(buffer, "return ");
+			output_expression(buffer, stmt->ret.value);
+			writeString(buffer, ";\n");
 		} break;
 		case STMT_FUNCTION:
 		{
-			output_token(&stmt->function.type);
-			printf(" ");
-			output_token(&stmt->function.name);
-			printf("(");
+			output_token(buffer, &stmt->function.type);
+			writeString(buffer, " ");
+			output_token(buffer, &stmt->function.name);
+			writeString(buffer, "(");
 
 			for (u32 i = 0; i < stmt->function.arguments.count; i++)
 			{
 				const varDecl_t *var = stmt->function.arguments.data + i;
-				output_token(&var->type);
-				printf(" ");
-				output_token(&var->type);
+				output_token(buffer, &var->type);
+				writeString(buffer, " ");
+				output_token(buffer, &var->type);
 				if (i != (stmt->function.arguments.count-1))
-					printf(", ");
+					writeString(buffer, ", ");
 			};
-			printf(")\n");
-			output_statement(stmt->function.body, index);
-			printf("\n");
+			writeString(buffer, ")\n");
+			output_statement(buffer, stmt->function.body, index);
+			writeString(buffer, "\n");
 		} break;
 		case STMT_WHILE:
 		{
-			printf("while(");
-			output_expression(stmt->whileLoop.condition);
-			printf("){\n");
-			output_statement(stmt->whileLoop.body, index+1);
-			printf("\n");
-			indent(index);
-			printf("}\n");
+			writeString(buffer, "while(");
+			output_expression(buffer, stmt->whileLoop.condition);
+			writeString(buffer, "){\n");
+			output_statement(buffer, stmt->whileLoop.body, index+1);
+			writeString(buffer, "\n");
+			indent(buffer, index);
+			writeString(buffer, "}\n");
 		} break;
 
-		default: printf("ERROR NOT IMPLEMENTED\n"); break;
+		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
 	};
 };
 
-static void output_std_header()
+static void output_std_header(buffer_t *buffer)
 {
-	printf("#include <stdint.h>\n");
-	printf("#include <stddef.h>\n");
-	printf("#include <stdbool.h>\n");
-	printf("#include <float.h>\n");
+	writeString(buffer, "#include <stdint.h>\n");
+	writeString(buffer, "#include <stddef.h>\n");
+	writeString(buffer, "#include <stdbool.h>\n");
+	writeString(buffer, "#include <float.h>\n");
 
-	printf("typedef uint8_t  u8;\n");
-	printf("typedef uint16_t u16;\n");
-	printf("typedef uint32_t u32;\n");
-	printf("typedef uint64_t u64;\n");
+	writeString(buffer, "typedef uint8_t  u8;\n");
+	writeString(buffer, "typedef uint16_t u16;\n");
+	writeString(buffer, "typedef uint32_t u32;\n");
+	writeString(buffer, "typedef uint64_t u64;\n");
 
-	printf("typedef int8_t  i8;\n");
-	printf("typedef int16_t i16;\n");
-	printf("typedef int32_t i32;\n");
-	printf("typedef int64_t i64;\n");
+	writeString(buffer, "typedef int8_t  i8;\n");
+	writeString(buffer, "typedef int16_t i16;\n");
+	writeString(buffer, "typedef int32_t i32;\n");
+	writeString(buffer, "typedef int64_t i64;\n");
 
-	printf("typedef float  f32;\n");
-	printf("typedef double f64;\n");
+	writeString(buffer, "typedef float  f32;\n");
+	writeString(buffer, "typedef double f64;\n");
 };
 
 void output_c(const parser_t *parser)
 {
-	output_std_header();
+	buffer_t buffer = {};
+	allocBuffer(&buffer, 128);
+
+	output_std_header(&buffer);
 
 	const stmtList_t *statements = &parser->statements; 
 	for (u32 i = 0; i < statements->count; i++)
 	{
 		const stmt_t *stmt = statements->data[i];
-		output_statement(stmt, 0);
+		output_statement(&buffer, stmt, 0);
 	};
+
+	writeEOF(&buffer);
+	#if 1
+	printBuffer(&buffer);
+	#else
+	saveBuffer(&buffer, "test.c");
+	#endif
+	freeBuffer(&buffer);
 };

@@ -525,8 +525,8 @@ static expr_t* parseCallExpression(parser_t *parser)
 };
 static expr_t* parseUnaryExpression(parser_t *parser)
 {
-	// Unary checks for '!' and '-'
-	const tokenType_t types[] = { TOKEN_BANG, TOKEN_MINUS };
+	// Unary checks for '!', '-', '*' (deref), and '&' (ref)
+	const tokenType_t types[] = { TOKEN_BANG, TOKEN_MINUS, TOKEN_STAR, TOKEN_AND };
 	if (match(parser, types, static_len(types)))
 	{
 		token_t operator = peekPrev(parser);

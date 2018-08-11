@@ -50,14 +50,14 @@ main :: () -> i32
 	let var m:i32 = 64;
 
 	// This value is inferred as a pointer to the variable 'n'
-	let pN := ref n;
+	let pN := &n;
 	/*
 	This value is declared as a mutable pointer to the variable 'n'
 	Pointers are immutable unless declared so, just like any other value
 	*/
-	let var pM:ptr<i32> = ref n;
+	let var pM:ptr<i32> = &n;
 	// Just because the pointer is mutable doesnt mean the value pointed at is mutable. This line should cause an error
-	// let pN:ptr<var i32> = ref n;
+	// let pN:ptr<var i32> = &n;
 
 	// This value is inferred as an immutable, stack allocated structure of type vec4
 	let v := vec4 {
