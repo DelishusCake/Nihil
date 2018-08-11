@@ -787,6 +787,8 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					// Implicit declaration
 					case TOKEN_COLON_EQUAL:
 					{
+						type.type = TOKEN_VOID;
+						
 						// Get the initializer expression
 						initializer = parseExpression(parser);
 						if (!initializer)
