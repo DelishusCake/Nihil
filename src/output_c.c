@@ -210,6 +210,15 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 				writeString(buffer, "const ");
 			output_token(buffer, value);
 		} break;
+		case EXPR_PTR:
+		{
+			const expr_t *to = expr->ptr.to;
+
+			if(expr->ptr.flags.isConst)
+				writeString(buffer, "const ");
+			output_expression(buffer, to);
+			writeChar(buffer, '*');
+		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
 	};

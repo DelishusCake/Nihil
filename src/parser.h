@@ -66,6 +66,7 @@ typedef enum
 	EXPR_VARIABLE,
 	EXPR_ASSIGNMENT,
 	// Type expressions
+	EXPR_PTR,
 	EXPR_BUILTIN,
 } exprType_t;
 struct expr_s
@@ -109,9 +110,14 @@ struct expr_s
 
 		struct
 		{
-			token_t value;
 			typeFlags_t flags;
+			token_t value;
 		} builtin;
+		struct
+		{
+			typeFlags_t flags;
+			expr_t *to;
+		} ptr;
 	};
 };
 

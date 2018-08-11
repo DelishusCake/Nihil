@@ -29,8 +29,11 @@ void do_print(const u32 lim)
 	}
 	printf("\n");
 }
-i32 main()
+const i32 main()
 {
 	do_print(100);
+	const u32 n = 1;
+	const const i32* r = &n;
+	printf("\n%d\n", *r);
 	return 0;
 }

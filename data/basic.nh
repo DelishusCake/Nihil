@@ -11,5 +11,11 @@ do_print :: (lim:u32)
 main :: () -> i32
 {
 	do_print(100);
+
+	// Basic pointer types!
+	let n:u32 = 1;
+	let r:ptr<i32> = &n;
+	printf("\n%d\n", *r);
+	
 	return 0;
 }

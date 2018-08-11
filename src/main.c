@@ -29,8 +29,8 @@ static bool compile(
 		parser_t parser = {};
 		if(parse(&parser, code, &tokens) == PARSER_NO_ERROR)
 		{
+			// Output the result
 			output_c(&parser, output);
-
 			// Free the parser
 			freeParser(&parser);
 		};

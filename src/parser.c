@@ -1,6 +1,10 @@
 #include "parser.h"
 
 /* Memory management */
+static void freeExprList(exprList_t *expressions);
+static void freeStmtList(stmtList_t *statements);
+static void freeArgList(argList_t *arguments);
+
 static expr_t* allocExpression()
 {
 	expr_t *expr = (expr_t*) malloc(sizeof(expr_t));
@@ -8,7 +12,6 @@ static expr_t* allocExpression()
 	zeroMemory(expr, sizeof(expr_t));
 	return expr;
 };
-static void freeExprList(exprList_t *expressions);
 static void freeExpr(expr_t *expr)
 {
 	if (expr)
@@ -37,6 +40,10 @@ static void freeExpr(expr_t *expr)
 			{
 				freeExpr(expr->assignment.value);
 			} break;
+			case EXPR_PTR:
+			{
+				freeExpr(expr->ptr.to);
+			} break;
 
 			case EXPR_LITERAL:
 			case EXPR_BUILTIN:
@@ -54,8 +61,6 @@ static stmt_t* allocStatement()
 	zeroMemory(stmt, sizeof(stmt_t));
 	return stmt;
 };
-static void freeStmtList(stmtList_t *statements);
-static void freeArgList(argList_t *arguments);
 static void freeStmt(stmt_t *stmt)
 {
 	if (stmt)
@@ -199,6 +204,7 @@ static void freeArgList(argList_t *arguments)
 	};
 };
 
+// Write an error into the std out
 static void error(parser_t *parser, token_t token, const char *msg)
 {
 	printf("ERROR [%d:%d] ::%s\n", token.line, token.line_offset, msg);
@@ -557,6 +563,7 @@ static expr_t* parseExpression(parser_t *parser)
 };
 
 /* Type expression parsers */
+static expr_t* parseType(parser_t *parser, bool isConst);
 static expr_t* parseBuiltinType(parser_t *parser, bool isConst)
 {
 	{
@@ -588,8 +595,38 @@ static expr_t* parseBuiltinType(parser_t *parser, bool isConst)
 	}
 	return NULL;
 };
-static expr_t *parseType(parser_t *parser, bool isConst)
+static expr_t* parsePtrType(parser_t *parser, bool isConst)
 {
+	if (!consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression"))
+		return NULL;
+
+	// Default to constant inner types
+	expr_t *to = parseBuiltinType(parser, true);
+	if (!to)
+	{
+		error(parser, peek(parser), "Expected type expression for ptr statement");
+		return NULL;
+	}
+
+	if (!consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression"))
+		return NULL;
+
+	expr_t *expr = allocExpression();
+	expr->type = EXPR_PTR;
+	expr->ptr.to = to;
+	expr->ptr.flags.isConst = isConst;
+	return expr;
+};
+static expr_t* parseType(parser_t *parser, bool isConst)
+{	
+	// Parse pointer types
+	{
+		const tokenType_t types[] = { TOKEN_PTR };
+		if (match(parser, types, static_len(types)))
+		{
+			return parsePtrType(parser, isConst);
+		};
+	}
 	return parseBuiltinType(parser, isConst);
 };
 
