@@ -13,9 +13,10 @@ main :: () -> i32
 	do_print(100);
 
 	// Basic pointer types!
-	let n:u32 = 1;
-	let r:ptr<i32> = &n;
-	printf("\n%d\n", *r);
+	let var n:u32 = 1;
+	let r:ptr<var i32> = &n;
+	let p:ptr<ptr<var i32>> = &r;
+	printf("\n%d %d\n", *r, **p);
 	
 	return 0;
 }

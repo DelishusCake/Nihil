@@ -601,7 +601,7 @@ static expr_t* parsePtrType(parser_t *parser, bool isConst)
 		return NULL;
 
 	// Default to constant inner types
-	expr_t *to = parseBuiltinType(parser, true);
+	expr_t *to = parseType(parser, true);
 	if (!to)
 	{
 		error(parser, peek(parser), "Expected type expression for ptr statement");
