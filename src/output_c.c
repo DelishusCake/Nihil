@@ -301,6 +301,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 
 static void output_std_header(buffer_t *buffer)
 {
+	writeString(buffer, "/* WARNING: This file is auto-generated. Do not modify */\n");
 	writeString(buffer, "#include <stdio.h>\n");
 	writeString(buffer, "#include <stdlib.h>\n");
 	writeString(buffer, "#include <stdint.h>\n");

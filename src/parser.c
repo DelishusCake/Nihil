@@ -502,9 +502,8 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 	return false;
 };
 
-static expr_t* parseBuiltinType(parser_t *parser)
+static expr_t* parseBuiltinType(parser_t *parser, bool isConst)
 {
-	bool isConst = true;
 	{
 		const tokenType_t types[] = { TOKEN_VAR };
 		if (match(parser, types, static_len(types)))
@@ -534,9 +533,9 @@ static expr_t* parseBuiltinType(parser_t *parser)
 	}
 	return NULL;
 };
-static expr_t *parseType(parser_t *parser)
+static expr_t *parseType(parser_t *parser, bool isConst)
 {
-	return parseBuiltinType(parser);
+	return parseBuiltinType(parser, isConst);
 };
 
 static expr_t* parseExpression(parser_t *parser);
@@ -875,15 +874,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					case TOKEN_COLON:
 					{
 						// Get the type
-						type = parseType(parser);
-						// Set the values to mutable if it's been declared as such
-						if (!isConst)
-						{
-							if ((type->type == EXPR_BUILTIN) && type->builtin.flags.isConst)
-							{
-								type->builtin.flags.isConst = false;
-							};
-						}
+						type = parseType(parser, isConst);
 
 						// If there is an equal sign after the type
 						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
@@ -962,7 +953,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 				return NULL;
 			}
 			// TODO: Type system
-			expr_t *type = parseType(parser);
+			expr_t *type = parseType(parser, true);
 
 			varDecl_t *decl = pushVarDecl(&arguments);
 			decl->name = name;
@@ -977,7 +968,8 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	if (match(parser, types, static_len(types)))
 	{
 		// TODO: Type system
-		type = parseType(parser);
+		// NOTE: Functions return non-const by default
+		type = parseType(parser, false);
 	} else {
 		// TODO: This is a hack!!
 		token_t voidTok = {};
@@ -985,6 +977,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 
 		type = allocExpression();
 		type->type = EXPR_BUILTIN;
+		type->builtin.flags.isConst = false;
 		type->builtin.value = voidTok;
 	}
 

@@ -1,3 +1,4 @@
+/* WARNING: This file is auto-generated. Do not modify */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -28,7 +29,7 @@ void do_print(const u32 lim)
 	}
 	printf("\n");
 }
-const i32 main()
+i32 main()
 {
 	do_print(100);
 	return 0;
