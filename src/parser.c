@@ -111,6 +111,7 @@ static varDecl_t* pushVarDecl(argList_t *arguments)
 };
 
 /* Debug functions */
+#if 0
 static void printToken(const token_t *token, bool printLine)
 {
 	char *type;
@@ -362,6 +363,7 @@ static void printStatement(const stmt_t *stmt, u32 index)
 		} break;
 	};
 };
+#endif
 static void error(const parser_t *parser, token_t token, const char *msg)
 {
 	printf("ERROR [%d:%d] ::%s\n", token.line, token.line_offset, msg);

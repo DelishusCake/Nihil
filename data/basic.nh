@@ -5,5 +5,10 @@ main :: () -> i32
 		let n:u32 = !(5 + 2);
 		let r := 2 + 5;
 	}
+
+	for(let r:u32 = 1; r < 100; r = r + 1)
+	{
+		return r;
+	}
 	return 0;
 }

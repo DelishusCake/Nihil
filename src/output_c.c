@@ -107,6 +107,18 @@ static void output_expression(const expr_t *expr)
 			const token_t *value = &expr->literal.value; 
 			output_token(value);
 		} break;
+		case EXPR_VARIABLE:
+		{
+			const token_t *name = &expr->variable.name;
+			output_token(name);
+		} break;
+		case EXPR_ASSIGNMENT:
+		{
+			const token_t *name = &expr->assignment.name;
+			output_token(name);
+			printf(" = ");
+			output_expression(expr->assignment.value);
+		} break;
 
 		default: printf("ERROR NOT IMPLEMENTED\n"); break;
 	};
@@ -129,6 +141,11 @@ static void output_statement(const stmt_t *stmt, u32 index)
 			}
 			printf(";\n");
 		} break;
+		case STMT_EXPR:
+		{
+			output_expression(stmt->expression.expr);
+			printf(";\n");
+		} break;
 		case STMT_BLOCK:
 		{
 			printf("{\n");
@@ -137,15 +154,23 @@ static void output_statement(const stmt_t *stmt, u32 index)
 				output_statement(stmt->block.statements.data[i], index+1);
 			}
 			indent(index);
-			printf("}");
+			printf("}\n");
 		} break;
 		case STMT_IF:
 		{
 			printf("if (");
 			output_expression(stmt->conditional.condition);
-			printf(")\n");
-			output_statement(stmt->conditional.thenBranch, index);
+			printf("){\n");
+			output_statement(stmt->conditional.thenBranch, index+1);
 			printf("\n");
+			if (stmt->conditional.elseBranch)
+			{
+				indent(index);
+				printf("}else{\n");
+				output_statement(stmt->conditional.elseBranch, index+1);
+			};
+			indent(index);
+			printf("}\n");
 		} break;
 		case STMT_RETURN:
 		{
@@ -173,13 +198,46 @@ static void output_statement(const stmt_t *stmt, u32 index)
 			output_statement(stmt->function.body, index);
 			printf("\n");
 		} break;
+		case STMT_WHILE:
+		{
+			printf("while(");
+			output_expression(stmt->whileLoop.condition);
+			printf("){\n");
+			output_statement(stmt->whileLoop.body, index+1);
+			printf("\n");
+			indent(index);
+			printf("}\n");
+		} break;
 
 		default: printf("ERROR NOT IMPLEMENTED\n"); break;
 	};
 };
 
+static void output_std_header()
+{
+	printf("#include <stdint.h>\n");
+	printf("#include <stddef.h>\n");
+	printf("#include <stdbool.h>\n");
+	printf("#include <float.h>\n");
+
+	printf("typedef uint8_t  u8;\n");
+	printf("typedef uint16_t u16;\n");
+	printf("typedef uint32_t u32;\n");
+	printf("typedef uint64_t u64;\n");
+
+	printf("typedef int8_t  i8;\n");
+	printf("typedef int16_t i16;\n");
+	printf("typedef int32_t i32;\n");
+	printf("typedef int64_t i64;\n");
+
+	printf("typedef float  f32;\n");
+	printf("typedef double f64;\n");
+};
+
 void output_c(const parser_t *parser)
 {
+	output_std_header();
+
 	const stmtList_t *statements = &parser->statements; 
 	for (u32 i = 0; i < statements->count; i++)
 	{
