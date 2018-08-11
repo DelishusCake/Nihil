@@ -42,7 +42,9 @@ static void saveBuffer(buffer_t *buffer, const char *filename)
 	{
 		fputs(buffer->data, f);
 		fclose(f);
-	};
+	} else {
+		printf("[ERROR] :: Failed to open \"%s\" for writing\n", filename);
+	}
 };
 
 static void writeStringLen(buffer_t *buffer, const char *str, size_t len)

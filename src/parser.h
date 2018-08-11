@@ -9,12 +9,6 @@
 // Maximum number of arguments that can be passed to a single function call 
 #define MAX_ARGUMENTS		64
 
-typedef struct
-{
-	token_t name;
-	token_t type;
-} varDecl_t;
-
 // Pre-declare types 
 struct expr_s; 
 struct stmt_s;
@@ -44,6 +38,11 @@ typedef struct
 /* List of arguments */
 typedef struct
 {
+	token_t name;
+	token_t type;
+} varDecl_t;
+typedef struct
+{
 	size_t count;
 	size_t size;
 	varDecl_t *data;
@@ -53,6 +52,7 @@ typedef struct
 typedef enum
 {
 	EXPR_NONE,
+	// Expressions
 	EXPR_CALL,
 	EXPR_GROUP,
 	EXPR_UNARY,
@@ -60,6 +60,8 @@ typedef enum
 	EXPR_LITERAL,
 	EXPR_VARIABLE,
 	EXPR_ASSIGNMENT,
+	// Type expressions
+	EXPR_BUILTIN,
 } exprType_t;
 struct expr_s
 {
@@ -99,18 +101,25 @@ struct expr_s
 			token_t name;
 			expr_t *value;
 		} assignment;
+
+		struct
+		{
+			token_t value;
+		} builtin;
 	};
 };
 
 typedef enum
 {
 	STMT_NONE,
+	// Statements
 	STMT_IF,
-	STMT_VAR,
 	STMT_EXPR,
 	STMT_BLOCK,
 	STMT_WHILE,
 	STMT_RETURN,
+	// Declarations
+	STMT_VAR,
 	STMT_FUNCTION,
 } stmtType_t;
 struct stmt_s
@@ -157,22 +166,20 @@ struct stmt_s
 };
 
 /* Recursive descent parser */
+typedef enum
+{
+	PARSER_NO_ERROR,
+	PARSER_ERROR,
+} parserError_t;
 typedef struct
 {
 	u32 current;
 	const char *code;
 	const arrayOf(token_t) *tokens;
 
-	linAlloc_t alloc;
-
+	parserError_t error;
 	stmtList_t statements;
 } parser_t;
-
-typedef enum
-{
-	PARSER_NO_ERROR,
-	PARSER_ERROR,
-} parserError_t;
 
 parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *tokens);
 void freeParser(parser_t *parser);
