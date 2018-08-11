@@ -31,10 +31,12 @@ static char* pushBytes(buffer_t *buffer, size_t len)
 	buffer->used += len;
 	return ptr;
 };
+#if 0
 static void printBuffer(buffer_t *buffer)
 {
 	puts(buffer->data);
 };
+#endif
 static void saveBuffer(buffer_t *buffer, const char *filename)
 {
 	FILE *f = fopen(filename, "wb");
@@ -201,6 +203,13 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			};
 			writeChar(buffer, ')');
 		} break;
+		case EXPR_BUILTIN:
+		{
+			const token_t *value = &expr->builtin.value;
+			if (expr->builtin.flags.isConst)
+				writeString(buffer, "const ");
+			output_token(buffer, value);
+		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
 	};
@@ -213,7 +222,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		case STMT_NONE: break;
 		case STMT_VAR:
 		{
-			output_token(buffer, &stmt->var.decl.type);
+			output_expression(buffer, stmt->var.decl.type);
 			writeChar(buffer, ' ');
 			output_token(buffer, &stmt->var.decl.name);
 			if (stmt->var.initializer)
@@ -261,15 +270,15 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		} break;
 		case STMT_FUNCTION:
 		{
-			output_token(buffer, &stmt->function.type);
+			output_expression(buffer, stmt->function.decl.type);
 			writeString(buffer, " ");
-			output_token(buffer, &stmt->function.name);
+			output_token(buffer, &stmt->function.decl.name);
 			writeString(buffer, "(");
 
 			for (u32 i = 0; i < stmt->function.arguments.count; i++)
 			{
 				const varDecl_t *var = stmt->function.arguments.data + i;
-				output_token(buffer, &var->type);
+				output_expression(buffer, var->type);
 				writeString(buffer, " ");
 				output_token(buffer, &var->name);
 				if (i != (stmt->function.arguments.count-1))

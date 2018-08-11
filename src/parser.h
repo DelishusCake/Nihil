@@ -39,7 +39,7 @@ typedef struct
 typedef struct
 {
 	token_t name;
-	token_t type;
+	expr_t *type;
 } varDecl_t;
 typedef struct
 {
@@ -47,6 +47,11 @@ typedef struct
 	size_t size;
 	varDecl_t *data;
 } argList_t;
+
+typedef struct
+{
+	u8 isConst : 1;
+} typeFlags_t;
 
 /* Abstract Syntax Tree structures */
 typedef enum
@@ -105,6 +110,7 @@ struct expr_s
 		struct
 		{
 			token_t value;
+			typeFlags_t flags;
 		} builtin;
 	};
 };
@@ -157,8 +163,7 @@ struct stmt_s
 		} ret;
 		struct
 		{
-			token_t name;
-			token_t type;
+			varDecl_t decl;
 			argList_t arguments;
 			stmt_t *body;
 		} function;

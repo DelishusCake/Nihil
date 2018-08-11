@@ -504,30 +504,40 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 
 static expr_t* parseBuiltinType(parser_t *parser)
 {
-	const tokenType_t types[] = 
+	bool isConst = true;
 	{
-		TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
-		TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
-		TOKEN_F32, TOKEN_F64, 
-		TOKEN_BOOL, TOKEN_CHAR,
-		TOKEN_VOID
-	};
-	if (match(parser, types, static_len(types)))
+		const tokenType_t types[] = { TOKEN_VAR };
+		if (match(parser, types, static_len(types)))
+		{
+			isConst = false;
+		};
+	}
 	{
-		token_t value = peekPrev(parser);
+		const tokenType_t types[] = 
+		{
+			TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
+			TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
+			TOKEN_F32, TOKEN_F64, 
+			TOKEN_BOOL, TOKEN_CHAR,
+			TOKEN_VOID
+		};
+		if (match(parser, types, static_len(types)))
+		{
+			token_t value = peekPrev(parser);
 
-		expr_t *expr = allocExpression();
-		expr->type = EXPR_BUILTIN;
-		expr->builtin.value = value;
-		return expr;
-	};
+			expr_t *expr = allocExpression();
+			expr->type = EXPR_BUILTIN;
+			expr->builtin.value = value;
+			expr->builtin.flags.isConst = isConst;
+			return expr;
+		};
+	}
 	return NULL;
 };
 static expr_t *parseType(parser_t *parser)
 {
 	return parseBuiltinType(parser);
 };
-
 
 static expr_t* parseExpression(parser_t *parser);
 static expr_t* parsePrimaryExpression(parser_t *parser)
@@ -838,13 +848,13 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 			Implicit declaration declares the variable to be the type of the evaluated <initializer> expression. <initializer is not optional.
 	*/
 	// All variables are constant by default
-	bool isConstant = true;
+	bool isConst = true;
 	// Check for the 'var' keyword to make this variable mutable
 	{
 		const tokenType_t types[] = { TOKEN_VAR };
 		if (match(parser, types, static_len(types)))
 		{
-			isConstant = false;
+			isConst = false;
 		};
 	}
 	// Consume the variable name
@@ -852,7 +862,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 	{
 		// Get the name token
 		token_t name = peekPrev(parser);
-		token_t type = {};
+		expr_t *type = NULL;
 		// Get the initialization expression
 		expr_t *initializer = NULL;
 		{
@@ -865,7 +875,16 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					case TOKEN_COLON:
 					{
 						// Get the type
-						type = advance(parser);
+						type = parseType(parser);
+						// Set the values to mutable if it's been declared as such
+						if (!isConst)
+						{
+							if ((type->type == EXPR_BUILTIN) && type->builtin.flags.isConst)
+							{
+								type->builtin.flags.isConst = false;
+							};
+						}
+
 						// If there is an equal sign after the type
 						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
 						if (match(parser, type_equal_types, static_len(type_equal_types)))
@@ -880,7 +899,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 							// TODO: Check for initializer type
 						} else {
 							// If the type is supposed to be constant, throw an error if there's no initializer
-							if (isConstant) 
+							if (isConst) 
 							{
 								error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
 								return NULL;
@@ -890,8 +909,6 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					// Implicit declaration
 					case TOKEN_COLON_EQUAL:
 					{
-						type.type = TOKEN_VOID;
-						
 						// Get the initializer expression
 						initializer = parseExpression(parser);
 						if (!initializer)
@@ -945,7 +962,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 				return NULL;
 			}
 			// TODO: Type system
-			token_t type = advance(parser);
+			expr_t *type = parseType(parser);
 
 			varDecl_t *decl = pushVarDecl(&arguments);
 			decl->name = name;
@@ -955,14 +972,20 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis"))
 		return NULL;
 	// Parse return type
-	token_t type = {};
+	expr_t *type = NULL;
 	const tokenType_t types[] = { TOKEN_ARROW };
 	if (match(parser, types, static_len(types)))
 	{
 		// TODO: Type system
-		type = advance(parser);
+		type = parseType(parser);
 	} else {
-		type.type = TOKEN_VOID;
+		// TODO: This is a hack!!
+		token_t voidTok = {};
+		voidTok.type = TOKEN_VOID;
+
+		type = allocExpression();
+		type->type = EXPR_BUILTIN;
+		type->builtin.value = voidTok;
 	}
 
 	// Parse the body
@@ -975,8 +998,8 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 
 	stmt_t *stmt = allocStatement();
 	stmt->type = STMT_FUNCTION;
-	stmt->function.name = name;
-	stmt->function.type = type;
+	stmt->function.decl.name = name;
+	stmt->function.decl.type = type;
 	stmt->function.arguments = arguments;
 	stmt->function.body = body;
 	return stmt;
