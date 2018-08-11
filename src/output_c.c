@@ -240,17 +240,16 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		{
 			writeString(buffer, "if (");
 			output_expression(buffer, stmt->conditional.condition);
-			writeString(buffer, "){\n");
+			writeString(buffer, ")\n");
 			output_statement(buffer, stmt->conditional.thenBranch, index+1);
 			writeString(buffer, "\n");
 			if (stmt->conditional.elseBranch)
 			{
 				indent(buffer, index);
-				writeString(buffer, "}else{\n");
+				writeString(buffer, "else\n");
 				output_statement(buffer, stmt->conditional.elseBranch, index+1);
 			};
 			indent(buffer, index);
-			writeString(buffer, "}\n");
 		} break;
 		case STMT_RETURN:
 		{
@@ -270,23 +269,19 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 				const varDecl_t *var = stmt->function.arguments.data + i;
 				output_token(buffer, &var->type);
 				writeString(buffer, " ");
-				output_token(buffer, &var->type);
+				output_token(buffer, &var->name);
 				if (i != (stmt->function.arguments.count-1))
 					writeString(buffer, ", ");
 			};
 			writeString(buffer, ")\n");
 			output_statement(buffer, stmt->function.body, index);
-			writeString(buffer, "\n");
 		} break;
 		case STMT_WHILE:
 		{
 			writeString(buffer, "while(");
 			output_expression(buffer, stmt->whileLoop.condition);
-			writeString(buffer, "){\n");
-			output_statement(buffer, stmt->whileLoop.body, index+1);
-			writeString(buffer, "\n");
-			indent(buffer, index);
-			writeString(buffer, "}\n");
+			writeString(buffer, ")\n");
+			output_statement(buffer, stmt->whileLoop.body, index);
 		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
@@ -295,6 +290,8 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 
 static void output_std_header(buffer_t *buffer)
 {
+	writeString(buffer, "#include <stdio.h>\n");
+	writeString(buffer, "#include <stdlib.h>\n");
 	writeString(buffer, "#include <stdint.h>\n");
 	writeString(buffer, "#include <stddef.h>\n");
 	writeString(buffer, "#include <stdbool.h>\n");
