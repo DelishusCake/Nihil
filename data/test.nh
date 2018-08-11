@@ -48,8 +48,10 @@ main :: () -> i32
 	let n := 32;
 	// This variable is declared as i32, any other value type needs a cast
 	let var m:i32 = 64;
+	// NOTE: the 'let var' syntax is actually syntax sugar to make type inferencing easier. This is equivalent to:
+	// let m:var i32 = 64; 
 
-	// This value is inferred as a pointer to the variable 'n'
+	// This value is inferred as a constant pointer to the variable 'n'
 	let pN := &n;
 	/*
 	This value is declared as a mutable pointer to the variable 'n'
@@ -60,11 +62,11 @@ main :: () -> i32
 	// let pN:ptr<var i32> = &n;
 
 	// This value is inferred as an immutable, stack allocated structure of type vec4
-	let v := vec4 {
+	let v := vec4
+	{
 		// Floating point values are inferred as f32 by default, f64's must be cast as such 
 		x = 1.0
 	};
-	// Calling a c function is just like calling a regular function
 	// The 'if', 'for', and 'while' syntaxes are all the same as c and so are logical operators
 	if ((add(n, m) == (n+m)) || (n != m))
 	{

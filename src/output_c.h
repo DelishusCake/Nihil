@@ -6,6 +6,6 @@
 
 #include "parser.h"
 
-void output_c(const parser_t *parser);
+void output_c(const parser_t *parser, const char *filename);
 
 #endif

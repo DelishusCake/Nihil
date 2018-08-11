@@ -311,7 +311,7 @@ static void output_std_header(buffer_t *buffer)
 	writeString(buffer, "typedef double f64;\n");
 };
 
-void output_c(const parser_t *parser)
+void output_c(const parser_t *parser, const char *filename)
 {
 	buffer_t buffer = {};
 	allocBuffer(&buffer, 128);
@@ -326,10 +326,10 @@ void output_c(const parser_t *parser)
 	};
 
 	writeEOF(&buffer);
-	#if 1
+	#if 0
 	printBuffer(&buffer);
 	#else
-	saveBuffer(&buffer, "test.c");
+	saveBuffer(&buffer, filename);
 	#endif
 	freeBuffer(&buffer);
 };

@@ -15,7 +15,9 @@ static void help()
 	printf("Help\n");
 };
 
-static bool compile(const char *code, size_t code_size)
+static bool compile(
+	const char *code, size_t code_size,
+	const char *output)
 {
 	bool result = false;
 
@@ -27,7 +29,7 @@ static bool compile(const char *code, size_t code_size)
 		parser_t parser = {};
 		if(parse(&parser, code, &tokens) == PARSER_NO_ERROR)
 		{
-			output_c(&parser);
+			output_c(&parser, output);
 
 			// Free the parser
 			freeParser(&parser);
@@ -43,19 +45,20 @@ int main(int argc, const char *argv[])
 	int result = 0;
 	if (argc > 1)
 	{
-		const char *filename = argv[1];
+		const char *in_filename = argv[1];
+		const char *out_filename = argv[2];
 
 		size_t code_size = 0;
-		char *code = (char*) loadEntireFile(filename, &code_size);
+		char *code = (char*) loadEntireFile(in_filename, &code_size);
 		if (code)
 		{
-			if (!compile(code, code_size))
+			if (!compile(code, code_size, out_filename))
 			{
 				result = 1;
 			}
 			free(code);
 		} else {
-			printf("Failed to load function \"%s\"\n", filename);
+			printf("Failed to load function \"%s\"\n", in_filename);
 		}
 	} else {
 		run_tests();
