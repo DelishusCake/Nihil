@@ -238,6 +238,26 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
 	};
 };
+static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
+{
+	writeString(buffer, "(");
+	if (arguments && arguments->count)
+	{
+		for (u32 i = 0; i < arguments->count; i++)
+		{
+			const varDecl_t *var = arguments->data + i;
+			output_expression(buffer, var->type);
+			writeString(buffer, " ");
+			output_token(buffer, &var->name);
+			if (i != (arguments->count-1))
+				writeString(buffer, ", ");
+		};
+	} else {
+		writeString(buffer, "void");
+	}
+	writeString(buffer, ")");
+};
+
 static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
 	indent(buffer, index);
@@ -288,35 +308,35 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		} break;
 		case STMT_RETURN:
 		{
+			const expr_t *value = stmt->ret.value;
+
 			writeString(buffer, "return ");
-			output_expression(buffer, stmt->ret.value);
+			output_expression(buffer, value);
 			writeString(buffer, ";\n");
 		} break;
 		case STMT_FUNCTION:
 		{
-			output_expression(buffer, stmt->function.decl.type);
-			writeString(buffer, " ");
-			output_token(buffer, &stmt->function.decl.name);
-			writeString(buffer, "(");
+			const token_t *name = &stmt->function.decl.name;
+			const expr_t *type = stmt->function.decl.type;
+			const argList_t *arguments = &stmt->function.arguments;
+			const stmt_t *body = stmt->function.body;
 
-			for (u32 i = 0; i < stmt->function.arguments.count; i++)
-			{
-				const varDecl_t *var = stmt->function.arguments.data + i;
-				output_expression(buffer, var->type);
-				writeString(buffer, " ");
-				output_token(buffer, &var->name);
-				if (i != (stmt->function.arguments.count-1))
-					writeString(buffer, ", ");
-			};
-			writeString(buffer, ")\n");
-			output_statement(buffer, stmt->function.body, index);
+			output_expression(buffer, type);
+			writeString(buffer, " ");
+			output_token(buffer, name);
+			output_arg_list(buffer, arguments);
+			writeString(buffer, "\n");
+			output_statement(buffer, body, index);
 		} break;
 		case STMT_WHILE:
 		{
+			const expr_t *condition = stmt->whileLoop.condition;
+			const stmt_t *body = stmt->whileLoop.body;
+
 			writeString(buffer, "while(");
-			output_expression(buffer, stmt->whileLoop.condition);
+			output_expression(buffer, condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, stmt->whileLoop.body, index);
+			output_statement(buffer, body, index);
 		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
@@ -346,26 +366,64 @@ static void output_std_header(buffer_t *buffer)
 	writeString(buffer, "typedef float  f32;\n");
 	writeString(buffer, "typedef double f64;\n");
 };
-
-void output_c(const parser_t *parser, const char *filename)
+static void output_prototypes(buffer_t *buffer, const parser_t *parser)
 {
-	buffer_t buffer = {};
-	allocBuffer(&buffer, 128);
-
-	output_std_header(&buffer);
-
+	writeString(buffer, "/* Function prototypes */\n");
 	const stmtList_t *statements = &parser->statements; 
 	for (u32 i = 0; i < statements->count; i++)
 	{
 		const stmt_t *stmt = statements->data[i];
-		output_statement(&buffer, stmt, 0);
-	};
+		switch (stmt->type)
+		{
+			// Output the prototype of all functions
+			case STMT_FUNCTION:
+			{
+				const token_t *name = &stmt->function.decl.name;
+				const expr_t *type = stmt->function.decl.type;
+				const argList_t *arguments = &stmt->function.arguments;
 
+				output_expression(buffer, type);
+				writeString(buffer, " ");
+				output_token(buffer, name);
+				output_arg_list(buffer, arguments);
+				writeString(buffer, ";\n");
+			} break;
+			// Default case for everything else
+			default: break;
+		}
+	};
+};
+static void output_all_statements(buffer_t *buffer, const parser_t *parser)
+{
+	// Just print all the statements
+	writeString(buffer, "/* Code */\n");
+	const stmtList_t *statements = &parser->statements; 
+	for (u32 i = 0; i < statements->count; i++)
+	{
+		const stmt_t *stmt = statements->data[i];
+		output_statement(buffer, stmt, 0);
+	};
+};
+
+void output_c(const parser_t *parser, const char *filename)
+{
+	// Allocate an output buffer to write to, small initially
+	buffer_t buffer = {};
+	allocBuffer(&buffer, 128);
+	// Ouput the standard header to the file
+	output_std_header(&buffer);
+	// Output function prototypes
+	output_prototypes(&buffer, parser);
+	// Output the rest of the code
+	output_all_statements(&buffer, parser);
+	// Write the NULL character
 	writeEOF(&buffer);
+	// Save the buffer to the output
 	#if 0
-	printBuffer(&buffer);
+		printBuffer(&buffer);
 	#else
-	saveBuffer(&buffer, filename);
+		saveBuffer(&buffer, filename);
 	#endif
+	// Free the buffer
 	freeBuffer(&buffer);
 };

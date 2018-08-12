@@ -15,6 +15,10 @@ typedef int32_t i32;
 typedef int64_t i64;
 typedef float  f32;
 typedef double f64;
+/* Function prototypes */
+void do_print(u32 const lim);
+i32 main(void);
+/* Code */
 void do_print(u32 const lim)
 {
 	{
@@ -29,7 +33,7 @@ void do_print(u32 const lim)
 	}
 	printf("\n");
 }
-i32 main()
+i32 main(void)
 {
 	do_print(100);
 	i32 n = 1;
