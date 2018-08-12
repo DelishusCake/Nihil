@@ -212,7 +212,7 @@ static void freeArgList(argList_t *arguments)
 // Write an error into the std out
 static void error(parser_t *parser, token_t token, const char *msg)
 {
-	printf("ERROR [%d:%d] ::%s\n", token.line, token.line_offset, msg);
+	printf("ERROR [%d:%d] :: %s\n", token.line, token.line_offset, msg);
 	parser->error = PARSER_ERROR;
 };
 
@@ -416,6 +416,11 @@ static expr_t* parsePreUnaryExpression(parser_t *parser)
 	{
 		token_t operator = peekPrev(parser);
 		expr_t *right = parsePreUnaryExpression(parser);
+		if (!right)
+		{
+			error(parser, operator, "Expected right hand expression");
+			return NULL;
+		}
 
 		expr_t *un = allocExpression();
 		un->type = EXPR_PRE_UNARY;
@@ -436,6 +441,11 @@ static expr_t* parseMultiplicationExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parsePreUnaryExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			expr_t *mult = allocExpression();
 			mult->type = EXPR_BINARY;
@@ -459,6 +469,11 @@ static expr_t* parseAdditionExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseMultiplicationExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			expr_t *add = allocExpression();
 			add->type = EXPR_BINARY;
@@ -486,6 +501,11 @@ static expr_t* parseComparisonExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseAdditionExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			expr_t *comp = allocExpression();
 			comp->type = EXPR_BINARY;
@@ -509,6 +529,11 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseComparisonExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 			
 			expr_t *eq = allocExpression();
 			eq->type = EXPR_BINARY;
@@ -531,6 +556,11 @@ static expr_t* parseLogicalAndExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseLogicalAndExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			expr_t *andExp = allocExpression();
 			andExp->type = EXPR_BINARY;
@@ -552,6 +582,11 @@ static expr_t* parseLogicalOrExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *right = parseLogicalAndExpression(parser);
+			if (!right)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			expr_t *orExp = allocExpression();
 			orExp->type = EXPR_BINARY;
@@ -577,6 +612,11 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 			expr_t *value = parseAssignmentExpression(parser);
+			if (!value)
+			{
+				error(parser, operator, "Expected right hand expression");
+				return NULL;
+			}
 
 			if (expr->type == EXPR_VARIABLE)
 			{
@@ -602,16 +642,19 @@ static expr_t* parseExpression(parser_t *parser)
 };
 
 /* Type expression parsers */
-static expr_t* parseType(parser_t *parser, bool isConst);
-static expr_t* parseBuiltinType(parser_t *parser, bool isConst)
+static expr_t* parseType(parser_t *parser, typeFlags_t flags);
+static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
 {
+	// Clear the const flag if the var type is set
 	{
 		const tokenType_t types[] = { TOKEN_VAR };
 		if (match(parser, types, static_len(types)))
 		{
-			isConst = false;
-		};
+			if (flags & TYPE_FLAG_CONST)
+				flags &= ~TYPE_FLAG_CONST;
+		}
 	}
+	// Check for basic types
 	{
 		const tokenType_t types[] = 
 		{
@@ -625,22 +668,30 @@ static expr_t* parseBuiltinType(parser_t *parser, bool isConst)
 		{
 			token_t value = peekPrev(parser);
 
+			// Set the basic flag
+			flags |= TYPE_FLAG_BASIC;
+			// If the type is a return type, then const does nothing. Just flip it off
+			if (flags & TYPE_FLAG_RETURN)
+			{
+				flags &= ~TYPE_FLAG_CONST;
+			};
+
 			expr_t *expr = allocExpression();
 			expr->type = EXPR_BUILTIN;
 			expr->builtin.value = value;
-			expr->builtin.flags.isConst = isConst;
+			expr->builtin.flags = flags;
 			return expr;
 		};
 	}
 	return NULL;
 };
-static expr_t* parsePtrType(parser_t *parser, bool isConst)
+static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
 {
 	if (!consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression"))
 		return NULL;
 
 	// Default to constant inner types
-	expr_t *to = parseType(parser, true);
+	expr_t *to = parseType(parser, (TYPE_FLAG_CONST));
 	if (!to)
 	{
 		error(parser, peek(parser), "Expected type expression for ptr statement");
@@ -653,20 +704,20 @@ static expr_t* parsePtrType(parser_t *parser, bool isConst)
 	expr_t *expr = allocExpression();
 	expr->type = EXPR_PTR;
 	expr->ptr.to = to;
-	expr->ptr.flags.isConst = isConst;
+	expr->ptr.flags = flags;
 	return expr;
 };
-static expr_t* parseType(parser_t *parser, bool isConst)
+static expr_t* parseType(parser_t *parser, typeFlags_t flags)
 {
 	// Parse pointer types
 	{
 		const tokenType_t types[] = { TOKEN_PTR };
 		if (match(parser, types, static_len(types)))
 		{
-			return parsePtrType(parser, isConst);
+			return parsePtrType(parser, flags);
 		};
 	}
-	return parseBuiltinType(parser, isConst);
+	return parseBuiltinType(parser, flags);
 };
 
 /* Declaration statement parsers */
@@ -680,14 +731,14 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 		2. let <variable_name> := <initializer>;
 			Implicit declaration declares the variable to be the type of the evaluated <initializer> expression. <initializer is not optional.
 	*/
-	// All variables are constant by default
-	bool isConst = true;
+	// Const by default
+	typeFlags_t typeFlags = (TYPE_FLAG_CONST);
 	// Check for the 'var' keyword to make this variable mutable
 	{
 		const tokenType_t types[] = { TOKEN_VAR };
 		if (match(parser, types, static_len(types)))
 		{
-			isConst = false;
+			typeFlags &= ~(TYPE_FLAG_CONST);
 		};
 	}
 	// Consume the variable name
@@ -708,7 +759,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					case TOKEN_COLON:
 					{
 						// Get the type
-						type = parseType(parser, isConst);
+						type = parseType(parser, typeFlags);
 
 						// If there is an equal sign after the type
 						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
@@ -724,7 +775,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 							// TODO: Check for initializer type
 						} else {
 							// If the type is supposed to be constant, throw an error if there's no initializer
-							if (isConst) 
+							if (typeFlags & TYPE_FLAG_CONST) 
 							{
 								error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
 								return NULL;
@@ -767,7 +818,6 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	argList_t arguments = {};
 	if (!check(parser, TOKEN_CLOSE_PAREN))
 	{
-		const bool isConst = true;
 		const tokenType_t comma_types[] = { TOKEN_COMMA };
 		do 
 		{
@@ -787,8 +837,8 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 			{
 				return NULL;
 			}
-			// Parse the type, constant by default
-			expr_t *type = parseType(parser, isConst);
+			// Parse the type, make sure it's marked as const by default
+			expr_t *type = parseType(parser, (TYPE_FLAG_CONST));
 
 			varDecl_t *decl = pushVarDecl(&arguments);
 			decl->name = name;
@@ -802,19 +852,15 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	const tokenType_t types[] = { TOKEN_ARROW };
 	if (match(parser, types, static_len(types)))
 	{
-		const bool isConst = true;
-		type = parseType(parser, isConst);
+		type = parseType(parser, (TYPE_FLAG_RETURN));
 	} else {
 		// TODO: This is a hack!!
-		// NOTE: Void can't be const
-		const bool isConst = false;
-
 		token_t voidTok = {};
 		voidTok.type = TOKEN_VOID;
 
 		type = allocExpression();
 		type->type = EXPR_BUILTIN;
-		type->builtin.flags.isConst = isConst;
+		type->builtin.flags = (TYPE_FLAG_RETURN);
 		type->builtin.value = voidTok;
 	}
 

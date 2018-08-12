@@ -222,7 +222,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 		{
 			const token_t *value = &expr->builtin.value;
 			output_token(buffer, value);
-			if (expr->builtin.flags.isConst)
+			if (expr->builtin.flags & TYPE_FLAG_CONST)
 				writeString(buffer, " const");
 		} break;
 		case EXPR_PTR:
@@ -231,7 +231,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 
 			output_expression(buffer, to);
 			writeString(buffer, " * ");
-			if(expr->ptr.flags.isConst)
+			if(expr->ptr.flags & TYPE_FLAG_CONST)
 				writeString(buffer, "const");
 		} break;
 

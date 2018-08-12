@@ -48,9 +48,12 @@ typedef struct
 	varDecl_t *data;
 } argList_t;
 
-typedef struct
+typedef enum
 {
-	u8 isConst : 1;
+	TYPE_FLAG_NONE		= 0,
+	TYPE_FLAG_CONST		= (1 << 0),
+	TYPE_FLAG_BASIC		= (1 << 1),
+	TYPE_FLAG_RETURN	= (1 << 2),
 } typeFlags_t;
 
 /* Abstract Syntax Tree structures */
