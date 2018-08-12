@@ -206,18 +206,18 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 		case EXPR_BUILTIN:
 		{
 			const token_t *value = &expr->builtin.value;
-			if (expr->builtin.flags.isConst)
-				writeString(buffer, "const ");
 			output_token(buffer, value);
+			if (expr->builtin.flags.isConst)
+				writeString(buffer, " const");
 		} break;
 		case EXPR_PTR:
 		{
 			const expr_t *to = expr->ptr.to;
 
-			if(expr->ptr.flags.isConst)
-				writeString(buffer, "const ");
 			output_expression(buffer, to);
-			writeChar(buffer, '*');
+			writeString(buffer, " * ");
+			if(expr->ptr.flags.isConst)
+				writeString(buffer, "const");
 		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;

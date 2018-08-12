@@ -132,6 +132,7 @@ static void freeStmtList(stmtList_t *statements)
 		{
 			stmt_t *stmt = statements->data[i];
 			freeStmt(stmt);
+			
 		};
 		// Free the actual array
 		free(statements->data);
@@ -487,7 +488,7 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* parseAndExpression(parser_t *parser)
+static expr_t* parseLogicalAndExpression(parser_t *parser)
 {
 	expr_t *expr = parseEqualityExpression(parser);
 	if (expr)
@@ -496,7 +497,7 @@ static expr_t* parseAndExpression(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = parseAndExpression(parser);
+			expr_t *right = parseLogicalAndExpression(parser);
 
 			expr_t *andExp = allocExpression();
 			andExp->type = EXPR_BINARY;
@@ -508,16 +509,16 @@ static expr_t* parseAndExpression(parser_t *parser)
 	}
 	return expr;
 }
-static expr_t* parseOrExpression(parser_t *parser)
+static expr_t* parseLogicalOrExpression(parser_t *parser)
 {
-	expr_t *expr = parseAndExpression(parser);
+	expr_t *expr = parseLogicalAndExpression(parser);
 	if (expr)
 	{
 		const tokenType_t types[] = { TOKEN_OR_OR };
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = parseAndExpression(parser);
+			expr_t *right = parseLogicalAndExpression(parser);
 
 			expr_t *orExp = allocExpression();
 			orExp->type = EXPR_BINARY;
@@ -531,7 +532,7 @@ static expr_t* parseOrExpression(parser_t *parser)
 };
 static expr_t* parseAssignmentExpression(parser_t *parser)
 {
-	expr_t *expr = parseOrExpression(parser);
+	expr_t *expr = parseLogicalOrExpression(parser);
 	if (expr)
 	{
 		const tokenType_t types[] = { TOKEN_EQUAL };
@@ -618,7 +619,7 @@ static expr_t* parsePtrType(parser_t *parser, bool isConst)
 	return expr;
 };
 static expr_t* parseType(parser_t *parser, bool isConst)
-{	
+{
 	// Parse pointer types
 	{
 		const tokenType_t types[] = { TOKEN_PTR };
