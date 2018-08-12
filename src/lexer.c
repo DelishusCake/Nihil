@@ -384,14 +384,27 @@ static bool parseToken(lexer_t *lexer)
 		case ',':	addTokenNoValue(lexer, TOKEN_COMMA); break;
 		case '.':	addTokenNoValue(lexer, TOKEN_DOT); break;
 		case ';':	addTokenNoValue(lexer, TOKEN_SEMICOLON); break;
-		case '*':	addTokenNoValue(lexer, TOKEN_STAR); break;
 		// Single/double character tokens
+		case '*':
+		{
+			addTokenNoValue(lexer, 
+				match(lexer, '=') ? TOKEN_STAR_EQUAL :
+				TOKEN_STAR);
+		} break;
 		case '-':
 		{
 			addTokenNoValue(lexer,
 				match(lexer, '>') ? TOKEN_ARROW : 
 				match(lexer, '-') ? TOKEN_MINUS_MINUS : 
+				match(lexer, '=') ? TOKEN_MINUS_EQUAL :
 				TOKEN_MINUS);
+		} break;
+		case '+':
+		{
+			addTokenNoValue(lexer, 
+				match(lexer, '+') ? TOKEN_PLUS_PLUS : 
+				match(lexer, '=') ? TOKEN_PLUS_EQUAL :
+				TOKEN_PLUS);
 		} break;
 		case ':':
 		{
@@ -402,7 +415,6 @@ static bool parseToken(lexer_t *lexer)
 		} break;
 		case '|':	addTokenNoValue(lexer, match(lexer, '|') ? TOKEN_OR_OR : TOKEN_OR); break;
 		case '&':	addTokenNoValue(lexer, match(lexer, '&') ? TOKEN_AND_AND : TOKEN_AND); break;
-		case '+':	addTokenNoValue(lexer, match(lexer, '+') ? TOKEN_PLUS_PLUS : TOKEN_PLUS); break;
 		case '!':	addTokenNoValue(lexer, match(lexer, '=') ? TOKEN_BANG_EQUAL : TOKEN_BANG); break;
 		case '=':	addTokenNoValue(lexer, match(lexer, '=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL); break;
 		case '<':	addTokenNoValue(lexer, match(lexer, '=') ? TOKEN_LESS_EQUAL : TOKEN_LESS); break;
@@ -420,7 +432,9 @@ static bool parseToken(lexer_t *lexer)
 				while ((peek(lexer) != '\n') && !isAtEnd(lexer))
 					advance(lexer);
 			} else {
-				addTokenNoValue(lexer, TOKEN_SLASH);
+				addTokenNoValue(lexer, 
+					match(lexer, '=') ? TOKEN_SLASH_EQUAL :
+					TOKEN_SLASH);
 			}
 		} break;
 		// String literals

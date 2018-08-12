@@ -27,9 +27,13 @@ static void freeExpr(expr_t *expr)
 				freeExpr(expr->call.callee);
 				freeExprList(&expr->call.args);
 			} break;
-			case EXPR_UNARY:
+			case EXPR_PRE_UNARY:
 			{
-				freeExpr(expr->unary.right);
+				freeExpr(expr->pre_unary.right);
+			} break;
+			case EXPR_POST_UNARY:
+			{
+				freeExpr(expr->post_unary.left);
 			} break;
 			case EXPR_BINARY:
 			{
@@ -375,26 +379,55 @@ static expr_t* parseCallExpression(parser_t *parser)
 	}
 	return expr;
 };
-static expr_t* parseUnaryExpression(parser_t *parser)
+static expr_t* parsePostUnaryExpression(parser_t *parser)
 {
-	// Unary checks for '!', '-', '*' (deref), and '&' (ref)
-	const tokenType_t types[] = { TOKEN_BANG, TOKEN_MINUS, TOKEN_STAR, TOKEN_AND };
+	expr_t *expr = parseCallExpression(parser);
+	if (expr)
+	{
+		const tokenType_t types[] =
+		{
+			TOKEN_PLUS_PLUS, TOKEN_MINUS_MINUS,
+		};
+		if (match(parser, types, static_len(types)))
+		{
+			token_t operator = peekPrev(parser);
+
+			expr_t *un = allocExpression();
+			un->type = EXPR_POST_UNARY;
+			un->post_unary.operator = operator;
+			un->post_unary.left = expr;
+
+			expr = un;
+		};
+	};
+	return expr;
+};
+static expr_t* parsePreUnaryExpression(parser_t *parser)
+{
+	// Unary checks (right to left)
+	const tokenType_t types[] =
+	{
+		TOKEN_BANG, 
+		TOKEN_PLUS, TOKEN_MINUS,
+		TOKEN_PLUS_PLUS, TOKEN_MINUS_MINUS,
+		TOKEN_STAR, TOKEN_AND,
+	};
 	if (match(parser, types, static_len(types)))
 	{
 		token_t operator = peekPrev(parser);
-		expr_t *right = parseUnaryExpression(parser);
+		expr_t *right = parsePreUnaryExpression(parser);
 
 		expr_t *un = allocExpression();
-		un->type = EXPR_UNARY;
-		un->unary.operator = operator;
-		un->unary.right = right;
+		un->type = EXPR_PRE_UNARY;
+		un->pre_unary.operator = operator;
+		un->pre_unary.right = right;
 		return un;
 	};
-	return parseCallExpression(parser); 
+	return parsePostUnaryExpression(parser); 
 };
 static expr_t* parseMultiplicationExpression(parser_t *parser)
 {
-	expr_t *expr = parseUnaryExpression(parser);
+	expr_t *expr = parsePreUnaryExpression(parser);
 	if (expr)
 	{
 		// Multiplication checks for '*' and '/'
@@ -402,7 +435,7 @@ static expr_t* parseMultiplicationExpression(parser_t *parser)
 		while (match(parser, types, static_len(types)))
 		{
 			token_t operator = peekPrev(parser);
-			expr_t *right = parseUnaryExpression(parser);
+			expr_t *right = parsePreUnaryExpression(parser);
 
 			expr_t *mult = allocExpression();
 			mult->type = EXPR_BINARY;
@@ -535,10 +568,14 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 	expr_t *expr = parseLogicalOrExpression(parser);
 	if (expr)
 	{
-		const tokenType_t types[] = { TOKEN_EQUAL };
+		const tokenType_t types[] = 
+		{ 
+			TOKEN_EQUAL, 
+			TOKEN_PLUS_EQUAL, TOKEN_MINUS_EQUAL, TOKEN_STAR_EQUAL, TOKEN_SLASH_EQUAL,
+		};
 		if (match(parser, types, static_len(types)))
 		{
-			token_t equals = peekPrev(parser);
+			token_t operator = peekPrev(parser);
 			expr_t *value = parseAssignmentExpression(parser);
 
 			if (expr->type == EXPR_VARIABLE)
@@ -547,11 +584,12 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 
 				expr_t *new_expr = allocExpression();
 				new_expr->type = EXPR_ASSIGNMENT;
+				new_expr->assignment.operator = operator;
 				new_expr->assignment.name = name;
 				new_expr->assignment.value = value;
 				return new_expr;
 			} else {
-				error(parser, equals, "Invalid assignment target");
+				error(parser, operator, "Invalid assignment target");
 				return NULL;
 			};
 		}

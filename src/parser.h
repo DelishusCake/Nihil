@@ -60,7 +60,8 @@ typedef enum
 	// Expressions
 	EXPR_CALL,
 	EXPR_GROUP,
-	EXPR_UNARY,
+	EXPR_PRE_UNARY,
+	EXPR_POST_UNARY,
 	EXPR_BINARY,
 	EXPR_LITERAL,
 	EXPR_VARIABLE,
@@ -87,7 +88,12 @@ struct expr_s
 		{
 			token_t operator;
 			expr_t *right;
-		} unary;
+		} pre_unary;
+		struct
+		{
+			token_t operator;
+			expr_t *left;
+		} post_unary;
 		struct
 		{
 			token_t operator;
@@ -104,6 +110,7 @@ struct expr_s
 		} variable;
 		struct 
 		{
+			token_t operator;
 			token_t name;
 			expr_t *value;
 		} assignment;

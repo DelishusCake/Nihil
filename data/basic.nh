@@ -1,7 +1,7 @@
 // See basic.c for the output from this file
 do_print :: (lim:u32)
 {
-	for (let var i:u32 = 0; i < lim; i = i + 1)
+	for (let var i:u32 = lim; i > 0; i--)
 	{
 		printf("%d ", i);
 	}

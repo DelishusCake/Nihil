@@ -18,13 +18,13 @@ typedef double f64;
 void do_print(u32 const lim)
 {
 	{
-		u32 i = 0;
-		while(i<lim)
+		u32 i = lim;
+		while(i>0)
 		{
 			{
 				printf("%d ", i);
 			}
-			i = i+1;
+			i--;
 		}
 	}
 	printf("\n");

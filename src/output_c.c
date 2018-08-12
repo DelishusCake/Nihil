@@ -95,6 +95,10 @@ static void output_token(buffer_t *buffer, const token_t *token)
 		case TOKEN_BANG_EQUAL: 		str = "!="; break;
 		case TOKEN_EQUAL: 			str = "="; break;
 		case TOKEN_EQUAL_EQUAL: 	str = "=="; break;
+		case TOKEN_PLUS_EQUAL: 		str = "+="; break;
+		case TOKEN_MINUS_EQUAL: 	str = "-="; break;
+		case TOKEN_STAR_EQUAL: 		str = "*="; break;
+		case TOKEN_SLASH_EQUAL: 	str = "/="; break;
 		case TOKEN_GREATER: 		str = ">"; break;
 		case TOKEN_GREATER_EQUAL: 	str = ">="; break;
 		case TOKEN_LESS: 			str = "<"; break;
@@ -156,13 +160,21 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			output_expression(buffer, expr->group.expression);
 			writeChar(buffer, ')');
 		} break;
-		case EXPR_UNARY:
+		case EXPR_PRE_UNARY:
 		{
-			const token_t *operator = &expr->unary.operator; 
-			const expr_t *right = expr->unary.right; 
+			const token_t *operator = &expr->pre_unary.operator; 
+			const expr_t *right = expr->pre_unary.right; 
 
 			output_token(buffer, operator);
 			output_expression(buffer, right);
+		} break;
+		case EXPR_POST_UNARY:
+		{
+			const token_t *operator = &expr->post_unary.operator; 
+			const expr_t *left = expr->post_unary.left; 
+
+			output_expression(buffer, left);
+			output_token(buffer, operator);
 		} break;
 		case EXPR_BINARY:
 		{
@@ -186,9 +198,12 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 		} break;
 		case EXPR_ASSIGNMENT:
 		{
+			const token_t *operator = &expr->assignment.operator;
 			const token_t *name = &expr->assignment.name;
 			output_token(buffer, name);
-			writeString(buffer, " = ");
+			writeChar(buffer, ' ');
+			output_token(buffer, operator);
+			writeChar(buffer, ' ');
 			output_expression(buffer, expr->assignment.value);
 		} break;
 		case EXPR_CALL:
