@@ -871,11 +871,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 		return NULL;
 	
 	stmt_t *body = parseBlockStatement(parser);
-	if (!body)
-	{
-		error(parser, peek(parser), "Expected block statement for function body");
-		return NULL;
-	}
+	if (!body) return NULL;
 
 	stmt_t *stmt = allocStatement();
 	stmt->type = STMT_FUNCTION;
@@ -937,7 +933,11 @@ static stmt_t* parseBlockStatement(parser_t *parser)
 	stmtList_t *statements = &stmt->block.statements;
 	while (!check(parser, TOKEN_CLOSE_BRACE) && !isAtEnd(parser))
 	{
-		pushStmt(statements, parseDeclaration(parser));
+		stmt_t *inner_stmt = parseDeclaration(parser);
+		if (inner_stmt)
+		{
+			pushStmt(statements, inner_stmt);
+		} else return NULL;
 	};
 	if (!consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace for block statement"))
 		return NULL;

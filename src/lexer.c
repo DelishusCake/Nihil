@@ -170,7 +170,7 @@ static inline char advance(lexer_t *lexer)
 // Advance the internal lexer state to a new line
 static inline void nextLine(lexer_t *lexer)
 {
-	lexer->line_offset = 0;
+	lexer->line_offset = 1;
 	lexer->line ++;
 };
 // Get the current character in the stream without advancing the stream
@@ -474,7 +474,7 @@ tokenizeError_t tokenize(const char *code, size_t code_len, arrayOf(token_t) *to
 	lexer.current = 0;
 
 	lexer.line = 1;
-	lexer.line_offset = 0;
+	lexer.line_offset = 1;
 	
 	lexer.code = code;
 	lexer.code_len = code_len;
