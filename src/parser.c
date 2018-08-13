@@ -272,7 +272,7 @@ static bool match(parser_t *parser, const tokenType_t *types, u32 typeCount)
 	return false;
 };
 // Consume an expected token, or throw en error if it's not found
-static bool consume(parser_t *parser, tokenType_t type, const char *msg)
+static bool consume_check(parser_t *parser, tokenType_t type, const char *msg)
 {
 	if (check(parser, type))
 	{
@@ -282,6 +282,8 @@ static bool consume(parser_t *parser, tokenType_t type, const char *msg)
 	error(parser, peekPrev(parser), msg);
 	return false;
 };
+// Eat a token type or return NULL from the current function if it doesn't match
+#define consume(parser, type, msg)		{ if(!consume_check(parser, type, msg)) return NULL; }
 
 /* Basic expression parsers */
 static expr_t* parseExpression(parser_t *parser);
@@ -323,15 +325,13 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		if (match(parser, types, static_len(types)))
 		{
 			expr_t *expr = parseExpression(parser);
-			if (consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression"))
-			{
-				expr_t *group = allocExpression();
-				group->type = EXPR_GROUP;
-				group->group.expression = expr;
-				return group;
-			} else {
-				return NULL;
-			}
+			
+			consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression");
+			
+			expr_t *group = allocExpression();
+			group->type = EXPR_GROUP;
+			group->group.expression = expr;
+			return group;
 		}
 	}
 	return NULL;
@@ -366,10 +366,7 @@ static expr_t* parseCallExpression(parser_t *parser)
 					} while (match(parser, next_types, static_len(next_types)));
 				}
 				// Consume the closing parenthesis
-				if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close function call"))
-				{
-					return NULL;
-				}
+				consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close function call");
 				// Iterate 
 				expr = call_expr;
 			} else {
@@ -687,8 +684,7 @@ static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
 };
 static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
 {
-	if (!consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression"))
-		return NULL;
+	consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression");
 
 	// Default to constant inner types
 	expr_t *to = parseType(parser, (TYPE_FLAG_CONST));
@@ -698,8 +694,7 @@ static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
 		return NULL;
 	}
 
-	if (!consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression"))
-		return NULL;
+	consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression");
 
 	expr_t *expr = allocExpression();
 	expr->type = EXPR_PTR;
@@ -744,75 +739,72 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 		};
 	}
 	// Consume the variable name
-	if (consume(parser, TOKEN_IDENTIFIER, "Expected variable name"))
-	{
-		// Get the name token
-		token_t name = peekPrev(parser);
-		expr_t *type = NULL;
-		// Get the initialization expression
-		expr_t *initializer = NULL;
-		{
-			const tokenType_t type_decl_types[] = { TOKEN_COLON, TOKEN_COLON_EQUAL };
-			if (match(parser, type_decl_types, static_len(type_decl_types)))
-			{
-				switch (peekPrev(parser).type)
-				{
-					// Explicit declaration
-					case TOKEN_COLON:
-					{
-						// Get the type
-						type = parseType(parser, typeFlags);
+	consume(parser, TOKEN_IDENTIFIER, "Expected variable name");
 
-						// If there is an equal sign after the type
-						const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
-						if (match(parser, type_equal_types, static_len(type_equal_types)))
-						{
-							// Get the initializer expression
-							initializer = parseExpression(parser);
-							if (!initializer)
-							{
-								error(parser, peekPrev(parser), "Expected initializer");
-								return NULL;
-							};
-							// TODO: Check for initializer type
-						} else {
-							// If the type is supposed to be constant, throw an error if there's no initializer
-							if (typeFlags & TYPE_FLAG_CONST) 
-							{
-								error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
-								return NULL;
-							}
-						}
-					} break;
-					// Implicit declaration
-					case TOKEN_COLON_EQUAL:
+	// Get the name token
+	token_t name = peekPrev(parser);
+	expr_t *type = NULL;
+	// Get the initialization expression
+	expr_t *initializer = NULL;
+	{
+		const tokenType_t type_decl_types[] = { TOKEN_COLON, TOKEN_COLON_EQUAL };
+		if (match(parser, type_decl_types, static_len(type_decl_types)))
+		{
+			switch (peekPrev(parser).type)
+			{
+				// Explicit declaration
+				case TOKEN_COLON:
+				{
+					// Get the type
+					type = parseType(parser, typeFlags);
+
+					// If there is an equal sign after the type
+					const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
+					if (match(parser, type_equal_types, static_len(type_equal_types)))
 					{
 						// Get the initializer expression
 						initializer = parseExpression(parser);
 						if (!initializer)
 						{
-							error(parser, peekPrev(parser), "Expected initializer for type-inferenced variable declaration");
+							error(parser, peekPrev(parser), "Expected initializer");
 							return NULL;
 						};
 						// TODO: Check for initializer type
-					} break;
-					// It can only be : or :=, just shut up gcc
-					default: break;
-				};	
-			}
+					} else {
+						// If the type is supposed to be constant, throw an error if there's no initializer
+						if (typeFlags & TYPE_FLAG_CONST) 
+						{
+							error(parser, peekPrev(parser), "Expected initializer for constant variable declaration");
+							return NULL;
+						}
+					}
+				} break;
+				// Implicit declaration
+				case TOKEN_COLON_EQUAL:
+				{
+					// Get the initializer expression
+					initializer = parseExpression(parser);
+					if (!initializer)
+					{
+						error(parser, peekPrev(parser), "Expected initializer for type-inferenced variable declaration");
+						return NULL;
+					};
+					// TODO: Check for initializer type
+				} break;
+				// It can only be : or :=, just shut up gcc
+				default: break;
+			};	
 		}
+	}
 
-		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration"))
-		{
-			stmt_t *stmt = allocStatement();
-			stmt->type = STMT_VAR;
-			stmt->var.decl.name = name;
-			stmt->var.decl.type = type;
-			stmt->var.initializer = initializer;
-			return stmt;
-		};
-	};
-	return NULL;
+	consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration");
+	
+	stmt_t *stmt = allocStatement();
+	stmt->type = STMT_VAR;
+	stmt->var.decl.name = name;
+	stmt->var.decl.type = type;
+	stmt->var.initializer = initializer;
+	return stmt;
 };
 static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 {
@@ -835,10 +827,8 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 				error(parser, name, "Expected identifier");
 				return NULL;
 			}
-			if (!consume(parser, TOKEN_COLON, "Expected comma-separator"))
-			{
-				return NULL;
-			}
+			consume(parser, TOKEN_COLON, "Expected comma-separator");
+			
 			// Parse the type, make sure it's marked as const by default
 			expr_t *type = parseType(parser, (TYPE_FLAG_CONST));
 
@@ -847,8 +837,8 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 			decl->type = type;
 		} while(match(parser, comma_types, static_len(comma_types)));
 	};
-	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis"))
-		return NULL;
+	consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis");
+
 	// Parse return type
 	expr_t *type = NULL;
 	const tokenType_t types[] = { TOKEN_ARROW };
@@ -867,8 +857,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	}
 
 	// Parse the body
-	if (!consume(parser, TOKEN_OPEN_BRACE, "Expected block statment for function body"))
-		return NULL;
+	consume(parser, TOKEN_OPEN_BRACE, "Expected block statment for function body");
 	
 	stmt_t *body = parseBlockStatement(parser);
 	if (!body) return NULL;
@@ -917,8 +906,7 @@ static stmt_t* parseExpressionStatement(parser_t *parser)
 	expr_t *expr = parseExpression(parser);
 	if (!expr)
 		return NULL;
-	if (!consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
-		return NULL;
+	consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression");
 
 	stmt_t *stmt = allocStatement();
 	stmt->type = STMT_EXPR;
@@ -939,13 +927,12 @@ static stmt_t* parseBlockStatement(parser_t *parser)
 			pushStmt(statements, inner_stmt);
 		} else return NULL;
 	};
-	if (!consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace for block statement"))
-		return NULL;
+	consume(parser, TOKEN_CLOSE_BRACE, "Expected closing brace for block statement");
 	return stmt;
 };
 static stmt_t* parseForStatement(parser_t *parser)
 {
-	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
+	consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis");
 	// Parse the initializer statement
 	stmt_t *initializer;
 	{
@@ -966,14 +953,14 @@ static stmt_t* parseForStatement(parser_t *parser)
 	{
 		condition = parseExpression(parser);
 	};
-	if (!consume(parser, TOKEN_SEMICOLON, "Expected ';' after loop condition")) return NULL; 
+	consume(parser, TOKEN_SEMICOLON, "Expected ';' after loop condition");
 	// Parse the incremental expression
 	expr_t *increment = NULL;
 	if (!check(parser, TOKEN_SEMICOLON))
 	{
 		increment = parseExpression(parser);
 	};
-	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
+	consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis");
 	// Get the body
 	stmt_t *body = parseStatement(parser);
 	if (!body)
@@ -1038,9 +1025,9 @@ static stmt_t* parseForStatement(parser_t *parser)
 }
 static stmt_t* parseWhileStatement(parser_t *parser)
 {
-	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
+	consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis");
 	expr_t *condition = parseExpression(parser);
-	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
+	consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis");
 
 	stmt_t *body = parseStatement(parser);
 	if (!body)
@@ -1059,9 +1046,9 @@ static stmt_t* parseWhileStatement(parser_t *parser)
 static stmt_t* parseIfStatement(parser_t *parser)
 {
 	// TODO: Do we want c-like if statements?
-	if (!consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis")) return NULL;
+	consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis");
 	expr_t *condition = parseExpression(parser);
-	if (!consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis")) return NULL;
+	consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis");
 
 	stmt_t *thenBranch = parseStatement(parser);
 	if (!thenBranch)
@@ -1100,8 +1087,7 @@ static stmt_t* parseReturnStatement(parser_t *parser)
 		// Get the return expression
 		value = parseExpression(parser);
 	};
-	if (!consume(parser, TOKEN_SEMICOLON, "Expected ';' after return statement"))
-		return NULL;
+	consume(parser, TOKEN_SEMICOLON, "Expected ';' after return statement");
 
 	stmt_t *stmt = allocStatement();
 	stmt->type = STMT_RETURN;
