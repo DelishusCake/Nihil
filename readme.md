@@ -21,7 +21,7 @@ At the moment the language is *somewhat* usable, it correctly parses and outputs
 
 ### Examples
 
-See data/test.nh for a syntax example
+See data/example.nh for a syntax example
 
 ### License
 

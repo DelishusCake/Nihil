@@ -407,7 +407,7 @@ static expr_t* parsePreUnaryExpression(parser_t *parser)
 	// Unary checks (right to left)
 	const tokenType_t types[] =
 	{
-		TOKEN_BANG, 
+		TOKEN_BANG, TOKEN_TILDE,
 		TOKEN_PLUS, TOKEN_MINUS,
 		TOKEN_PLUS_PLUS, TOKEN_MINUS_MINUS,
 		TOKEN_STAR, TOKEN_AND,
@@ -722,6 +722,8 @@ static expr_t* parseType(parser_t *parser, typeFlags_t flags)
 
 /* Declaration statement parsers */
 static stmt_t* parseStatement(parser_t *parser);
+static stmt_t* parseBlockStatement(parser_t *parser);
+
 static stmt_t* parseVariableDeclaration(parser_t *parser)
 {
 	/* NOTE: There are two types of declaration for variables
@@ -865,10 +867,13 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	}
 
 	// Parse the body
-	stmt_t *body = parseStatement(parser);
+	if (!consume(parser, TOKEN_OPEN_BRACE, "Expected block statment for function body"))
+		return NULL;
+	
+	stmt_t *body = parseBlockStatement(parser);
 	if (!body)
 	{
-		error(parser, peek(parser), "Expected statement for function body");
+		error(parser, peek(parser), "Expected block statement for function body");
 		return NULL;
 	}
 
@@ -914,17 +919,15 @@ static stmt_t* parseDeclaration(parser_t *parser)
 static stmt_t* parseExpressionStatement(parser_t *parser)
 {
 	expr_t *expr = parseExpression(parser);
-	if (expr)
-	{
-		if (consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
-		{
-			stmt_t *stmt = allocStatement();
-			stmt->type = STMT_EXPR;
-			stmt->expression.expr = expr;
-			return stmt;
-		};
-	};
-	return NULL;
+	if (!expr)
+		return NULL;
+	if (!consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression"))
+		return NULL;
+
+	stmt_t *stmt = allocStatement();
+	stmt->type = STMT_EXPR;
+	stmt->expression.expr = expr;
+	return stmt;
 };
 static stmt_t* parseBlockStatement(parser_t *parser)
 {
@@ -1160,9 +1163,10 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 	while (true)
 	{
 		stmt_t *stmt = parseDeclaration(parser);
-		if (!stmt)
-			break;
-		pushStmt(&parser->statements, stmt);
+		if (stmt != NULL)
+		{
+			pushStmt(&parser->statements, stmt);
+		} else break;
 	}
 	return parser->error;
 }

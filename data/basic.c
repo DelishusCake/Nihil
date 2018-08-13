@@ -5,25 +5,15 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <float.h>
-typedef uint8_t  u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t  i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef float  f32;
-typedef double f64;
 /* Function prototypes */
-void do_print(u32 const lim);
-i32 main(void);
+void do_print(uint32_t const lim);
+int32_t main(void);
 /* Code */
-void do_print(u32 const lim)
+void do_print(uint32_t const lim)
 {
 	{
-		u32 i = 0;
-		while(i<lim)
+		uint32_t i = 0;
+		while(i<=lim)
 		{
 			{
 				printf("%d ", i);
@@ -33,12 +23,12 @@ void do_print(u32 const lim)
 	}
 	printf("\n");
 }
-i32 main(void)
+int32_t main(void)
 {
 	do_print(100);
-	i32 n = 1;
-	i32 * const r = &n;
-	i32 * const * const p = &r;
+	int32_t n = 1;
+	int32_t * const r = &n;
+	int32_t * const * const p = &r;
 	printf("\n%d %d\n", *r, **p);
 	return 0;
 }

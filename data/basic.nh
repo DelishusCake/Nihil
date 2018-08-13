@@ -1,7 +1,11 @@
-// See basic.c for the output from this file
+/*
+A basic syntax example for testing and whatnot.
+See basic.c for the output from this file
+*/
 do_print :: (lim:u32)
 {
-	for (let var i:u32 = 0; i < lim; i ++)
+	// C-style for loops 
+	for (let var i:u32 = 0; i <= lim; i ++)
 	{
 		printf("%d ", i);
 	}
@@ -17,6 +21,6 @@ main :: () -> i32
 	let r:ptr<var i32> = &n;
 	let p:ptr<ptr<var i32>> = &r;
 	printf("\n%d %d\n", *r, **p);
-	
+
 	return 0;
 }

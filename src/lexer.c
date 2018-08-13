@@ -384,6 +384,7 @@ static bool parseToken(lexer_t *lexer)
 		case ',':	addTokenNoValue(lexer, TOKEN_COMMA); break;
 		case '.':	addTokenNoValue(lexer, TOKEN_DOT); break;
 		case ';':	addTokenNoValue(lexer, TOKEN_SEMICOLON); break;
+		case '~':	addTokenNoValue(lexer, TOKEN_TILDE); break;
 		// Single/double character tokens
 		case '*':
 		{

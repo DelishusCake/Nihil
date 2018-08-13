@@ -4,6 +4,7 @@
 #include "core.h"
 #include "util.h"
 
+#include "buffer.h"
 #include "parser.h"
 
 void output_c(const parser_t *parser, const char *filename);

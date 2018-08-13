@@ -1,73 +1,5 @@
 #include "output_c.h"
 
-typedef struct
-{
-	size_t used;
-	size_t size;
-	char *data;
-} buffer_t;
-
-static void allocBuffer(buffer_t *buffer, size_t initial)
-{
-	buffer->used = 0;
-	buffer->size = initial;
-	buffer->data = malloc(initial*sizeof(char));
-	assert(buffer->data);
-};
-static void freeBuffer(buffer_t *buffer)
-{
-	buffer->used = buffer->size = 0;
-	free(buffer->data);
-};
-static char* pushBytes(buffer_t *buffer, size_t len)
-{
-	if ((buffer->used + len) > buffer->size)
-	{
-		buffer->size <<= 1;
-		buffer->data = realloc(buffer->data, buffer->size*sizeof(char));
-		assert(buffer->data);
-	};
-	char *ptr = buffer->data + buffer->used;
-	buffer->used += len;
-	return ptr;
-};
-#if 0
-static void printBuffer(buffer_t *buffer)
-{
-	puts(buffer->data);
-};
-#endif
-static void saveBuffer(buffer_t *buffer, const char *filename)
-{
-	FILE *f = fopen(filename, "wb");
-	if (f)
-	{
-		fputs(buffer->data, f);
-		fclose(f);
-	} else {
-		printf("[ERROR] :: Failed to open \"%s\" for writing\n", filename);
-	}
-};
-
-static void writeStringLen(buffer_t *buffer, const char *str, size_t len)
-{
-	char *ptr = pushBytes(buffer, len*sizeof(char));
-	memcpy(ptr, str, len*sizeof(char));
-};
-static void writeString(buffer_t *buffer, const char *str)
-{
-	const size_t len = strlen(str);
-	writeStringLen(buffer, str, len);
-};
-static void writeChar(buffer_t *buffer, char c)
-{
-	writeStringLen(buffer, &c, 1);
-};
-static void writeEOF(buffer_t *buffer)
-{
-	writeChar(buffer, '\0');
-};
-
 static void indent(buffer_t *buffer, u32 count)
 {
 	for (u32 i = 0; i < count; i++)
@@ -123,16 +55,16 @@ static void output_token(buffer_t *buffer, const token_t *token)
 		case TOKEN_UNION: 			str = "union"; break;
 		case TOKEN_ENUM: 			str = "enum"; break;
 		// Built in types
-		case TOKEN_U8: 				str = "u8"; break;
-		case TOKEN_U16: 			str = "u16"; break;
-		case TOKEN_U32: 			str = "u32"; break;
-		case TOKEN_U64: 			str = "u64"; break;
-		case TOKEN_I8: 				str = "i8"; break;
-		case TOKEN_I16: 			str = "i16"; break;
-		case TOKEN_I32: 			str = "i32"; break;
-		case TOKEN_I64: 			str = "i64"; break;
-		case TOKEN_F32: 			str = "f32"; break;
-		case TOKEN_F64: 			str = "f64"; break;
+		case TOKEN_U8: 				str = "uint8_t"; break;
+		case TOKEN_U16: 			str = "uint16_t"; break;
+		case TOKEN_U32: 			str = "uint32_t"; break;
+		case TOKEN_U64: 			str = "uint64_t"; break;
+		case TOKEN_I8: 				str = "int8_t"; break;
+		case TOKEN_I16: 			str = "int16_t"; break;
+		case TOKEN_I32: 			str = "int32_t"; break;
+		case TOKEN_I64: 			str = "int64_t"; break;
+		case TOKEN_F32: 			str = "float"; break;
+		case TOKEN_F64: 			str = "bool"; break;
 		case TOKEN_CHAR: 			str = "char"; break;
 		case TOKEN_BOOL: 			str = "bool"; break;
 		case TOKEN_VOID: 			str = "void"; break;
@@ -156,8 +88,10 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 	{
 		case EXPR_GROUP:
 		{
+			const expr_t *inner = expr->group.expression;
+
 			writeChar(buffer, '(');
-			output_expression(buffer, expr->group.expression);
+			output_expression(buffer, inner);
 			writeChar(buffer, ')');
 		} break;
 		case EXPR_PRE_UNARY:
@@ -352,19 +286,6 @@ static void output_std_header(buffer_t *buffer)
 	writeString(buffer, "#include <stddef.h>\n");
 	writeString(buffer, "#include <stdbool.h>\n");
 	writeString(buffer, "#include <float.h>\n");
-
-	writeString(buffer, "typedef uint8_t  u8;\n");
-	writeString(buffer, "typedef uint16_t u16;\n");
-	writeString(buffer, "typedef uint32_t u32;\n");
-	writeString(buffer, "typedef uint64_t u64;\n");
-
-	writeString(buffer, "typedef int8_t  i8;\n");
-	writeString(buffer, "typedef int16_t i16;\n");
-	writeString(buffer, "typedef int32_t i32;\n");
-	writeString(buffer, "typedef int64_t i64;\n");
-
-	writeString(buffer, "typedef float  f32;\n");
-	writeString(buffer, "typedef double f64;\n");
 };
 static void output_prototypes(buffer_t *buffer, const parser_t *parser)
 {
