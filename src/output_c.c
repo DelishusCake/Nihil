@@ -133,12 +133,13 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 		case EXPR_ASSIGNMENT:
 		{
 			const token_t *operator = &expr->assignment.operator;
-			const token_t *name = &expr->assignment.name;
-			output_token(buffer, name);
+			const expr_t *target = expr->assignment.target;
+			const expr_t *value = expr->assignment.value;
+			output_expression(buffer, target);
 			writeChar(buffer, ' ');
 			output_token(buffer, operator);
 			writeChar(buffer, ' ');
-			output_expression(buffer, expr->assignment.value);
+			output_expression(buffer, value);
 		} break;
 		case EXPR_CALL:
 		{

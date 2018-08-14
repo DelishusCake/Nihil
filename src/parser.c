@@ -615,20 +615,13 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 				return NULL;
 			}
 
-			if (expr->type == EXPR_VARIABLE)
-			{
-				token_t name = expr->variable.name;
-
-				expr_t *new_expr = allocExpression();
-				new_expr->type = EXPR_ASSIGNMENT;
-				new_expr->assignment.operator = operator;
-				new_expr->assignment.name = name;
-				new_expr->assignment.value = value;
-				return new_expr;
-			} else {
-				error(parser, operator, "Invalid assignment target");
-				return NULL;
-			};
+			// TODO: Check and make sure that the target is valid
+			expr_t *new_expr = allocExpression();
+			new_expr->type = EXPR_ASSIGNMENT;
+			new_expr->assignment.operator = operator;
+			new_expr->assignment.target = expr;
+			new_expr->assignment.value = value;
+			return new_expr;
 		}
 	};
 	return expr;

@@ -19,6 +19,9 @@ main :: () -> i32
 	// Basic pointer types!
 	let var n:i32 = 1;
 	let r:ptr<var i32> = &n;
+	
+	*r = 4;
+
 	let p:ptr<ptr<var i32>> = &r;
 	printf("\n%d %d\n", *r, **p);
 

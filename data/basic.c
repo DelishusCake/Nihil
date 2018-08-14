@@ -28,6 +28,7 @@ int32_t main(void)
 	do_print(100);
 	int32_t n = 1;
 	int32_t * const r = &n;
+	*r = 4;
 	int32_t * const * const p = &r;
 	printf("\n%d %d\n", *r, **p);
 	return 0;

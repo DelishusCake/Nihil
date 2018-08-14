@@ -114,7 +114,7 @@ struct expr_s
 		struct 
 		{
 			token_t operator;
-			token_t name;
+			expr_t *target;
 			expr_t *value;
 		} assignment;
 
