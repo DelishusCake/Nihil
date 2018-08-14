@@ -231,15 +231,14 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			writeString(buffer, "if (");
 			output_expression(buffer, stmt->conditional.condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, stmt->conditional.thenBranch, index+1);
+			output_statement(buffer, stmt->conditional.thenBranch, index);
 			writeString(buffer, "\n");
 			if (stmt->conditional.elseBranch)
 			{
 				indent(buffer, index);
 				writeString(buffer, "else\n");
-				output_statement(buffer, stmt->conditional.elseBranch, index+1);
+				output_statement(buffer, stmt->conditional.elseBranch, index);
 			};
-			indent(buffer, index);
 		} break;
 		case STMT_RETURN:
 		{

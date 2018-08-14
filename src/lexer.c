@@ -37,6 +37,7 @@ static keyword_t g_keywords[] =
 	{ "true", TOKEN_TRUE },
 	{ "false", TOKEN_FALSE },
 	{ "for", TOKEN_FOR },
+	{ "in", TOKEN_IN },
 	{ "while", TOKEN_WHILE },
 	{ "nil", TOKEN_NIL },
 	{ "extern", TOKEN_EXTERN },
@@ -381,6 +382,8 @@ static bool parseToken(lexer_t *lexer)
 		case ')':	addTokenNoValue(lexer, TOKEN_CLOSE_PAREN); break;
 		case '{':	addTokenNoValue(lexer, TOKEN_OPEN_BRACE); break;
 		case '}':	addTokenNoValue(lexer, TOKEN_CLOSE_BRACE); break;
+		case '[':	addTokenNoValue(lexer, TOKEN_OPEN_BRACKET); break;
+		case ']':	addTokenNoValue(lexer, TOKEN_CLOSE_BRACKET); break;
 		case ',':	addTokenNoValue(lexer, TOKEN_COMMA); break;
 		case '.':	addTokenNoValue(lexer, TOKEN_DOT); break;
 		case ';':	addTokenNoValue(lexer, TOKEN_SEMICOLON); break;

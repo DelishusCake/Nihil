@@ -925,35 +925,53 @@ static stmt_t* parseBlockStatement(parser_t *parser)
 };
 static stmt_t* parseForStatement(parser_t *parser)
 {
+	// NOTE: For variables are always mutable
+	const typeFlags_t typeFlags = (0);
+
 	consume(parser, TOKEN_OPEN_PAREN, "Expected opening parenthesis");
-	// Parse the initializer statement
-	stmt_t *initializer;
+	consume(parser, TOKEN_IDENTIFIER, "Expected identifier");
+	
+	token_t name = peekPrev(parser);
+	consume(parser, TOKEN_COLON, "Expected ':' for type declaration");
+	expr_t *type = parseType(parser, typeFlags);
+	if (!type)
 	{
-		const tokenType_t types_empty[] = { TOKEN_SEMICOLON };
-		const tokenType_t types_var[] = { TOKEN_LET };
-		if (match(parser, types_empty, static_len(types_empty)))
-		{
-			initializer = NULL;
-		} else if (match(parser, types_var, static_len(types_var))) {
-			initializer = parseVariableDeclaration(parser);
-		} else {
-			initializer = parseExpressionStatement(parser);
-		}
+		error(parser, peek(parser), "Expected type declaration");
+		return NULL;
 	}
-	// Parse the conditional expression
-	expr_t *condition = NULL;
-	if (!check(parser, TOKEN_SEMICOLON))
+
+	//Parse opening statement
+	consume(parser, TOKEN_IN, "Expected 'in' token");
+	consume(parser, TOKEN_OPEN_BRACKET, "Expected opening '['");
+
+	expr_t *open = parsePrimaryExpression(parser);
+	if (!open)
 	{
-		condition = parseExpression(parser);
-	};
-	consume(parser, TOKEN_SEMICOLON, "Expected ';' after loop condition");
-	// Parse the incremental expression
-	expr_t *increment = NULL;
-	if (!check(parser, TOKEN_SEMICOLON))
+		error(parser, peek(parser), "Expected opening expression");
+		return NULL;
+	}
+
+	consume(parser, TOKEN_COMMA, "Expected ',' to separate expressions");
+
+	expr_t *close = parsePrimaryExpression(parser);
+	if (!close)
 	{
-		increment = parseExpression(parser);
-	};
+		error(parser, peek(parser), "Expected closing expression");
+		return NULL;
+	}
+
+	bool closeIsInclusive = false;
+	{
+		const tokenType_t types_close[] = { TOKEN_CLOSE_PAREN, TOKEN_CLOSE_BRACKET };
+		if (!match(parser, types_close, static_len(types_close)))
+		{
+			error(parser, peek(parser), "Expected closing ')' or ']'");
+			return NULL;
+		}
+		closeIsInclusive = (peekPrev(parser).type == TOKEN_CLOSE_BRACKET);
+	}
 	consume(parser, TOKEN_CLOSE_PAREN, "Expected closing parenthesis");
+
 	// Get the body
 	stmt_t *body = parseStatement(parser);
 	if (!body)
@@ -962,37 +980,51 @@ static stmt_t* parseForStatement(parser_t *parser)
 		error(parser, last, "Expected body for for statement");
 		return NULL;
 	};
+
 	// De-sugarization
-	// TODO: Do we need to do this?
-	// Add the increment (if it exists)
-	if (increment != NULL)
 	{
+		//Create the increment statement
+		expr_t *var = allocExpression();
+		var->type = EXPR_VARIABLE;
+		var->variable.name = name;
+
+		token_t operator = {};
+		operator.type = TOKEN_PLUS_PLUS;
+		
+		expr_t *increment = allocExpression();
+		increment->type = EXPR_POST_UNARY;
+		increment->post_unary.operator = operator;
+		increment->post_unary.left = var;
+
+		stmt_t *inc_stmt = allocStatement();
+		inc_stmt->type = STMT_EXPR;
+		inc_stmt->expression.expr = increment;
+
+		//Alloc the overall statement
 		stmt_t *stmt = allocStatement();
 		stmt->type = STMT_BLOCK;
 		stmtList_t *statements = &stmt->block.statements;
 		// Add the body statement 
 		pushStmt(statements, body);
 		// Add the increment statement
-		stmt_t *inc_stmt = allocStatement();
-		inc_stmt->type = STMT_EXPR;
-		inc_stmt->expression.expr = increment;
 		pushStmt(statements, inc_stmt);
-		// Swap the old body with the new one
 		body = stmt;
 	};
-	// Add the condition (or make an infinate loop if there isn't one)
+	// Add the condition
 	{
-		// Without a given condition, it is considered to be an infinate loop
-		if (condition == NULL)
-		{
-			// Make a 'true' token
-			token_t token = {};
-			token.type = TOKEN_TRUE;
-			// Make a new condition expression as a literal 'true'
-			condition = allocExpression();
-			condition->type = EXPR_LITERAL;
-			condition->literal.value = token;
-		}
+		expr_t *var = allocExpression();
+		var->type = EXPR_VARIABLE;
+		var->variable.name = name;
+
+		token_t operator = {};
+		operator.type = closeIsInclusive ? TOKEN_LESS_EQUAL : TOKEN_LESS;
+
+		expr_t *condition = allocExpression();
+		condition->type = EXPR_BINARY;
+		condition->binary.operator = operator;
+		condition->binary.left = var;
+		condition->binary.right = close;
+
 		// Add a while statement with the conditional and the body
 		stmt_t *stmt = allocStatement();
 		stmt->type = STMT_WHILE;
@@ -1001,14 +1033,20 @@ static stmt_t* parseForStatement(parser_t *parser)
 		// Swap the old body with the new while loop
 		body = stmt;
 	}
-	// Add the initializer (if there is one)
-	if (initializer != NULL)
+	// Add the declaration
 	{
+		// Create the declaration
+		stmt_t *declaration = allocStatement();
+		declaration->type = STMT_VAR;
+		declaration->var.decl.name = name;
+		declaration->var.decl.type = type;
+		declaration->var.initializer = open;
+
 		stmt_t *stmt = allocStatement();
 		stmt->type = STMT_BLOCK;
 		stmtList_t *statements = &stmt->block.statements;
 		// Add the initializer statement
-		pushStmt(statements, initializer);
+		pushStmt(statements, declaration);
 		// Add the body statement 
 		pushStmt(statements, body);
 		// Swap the old body with the new one

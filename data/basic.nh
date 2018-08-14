@@ -4,8 +4,9 @@ See basic.c for the output from this file
 */
 do_print :: (lim:u32)
 {
-	// C-style for loops 
-	for (let var i:u32 = 0; i <= lim; i ++)
+	// Non-inclusive:
+	// for (i:u32 in [0, lim))
+	for (i:u32 in [0, lim])
 	{
 		printf("%d ", i);
 	}
@@ -19,11 +20,13 @@ main :: () -> i32
 	// Basic pointer types!
 	let var n:i32 = 1;
 	let r:ptr<var i32> = &n;
-	
-	*r = 4;
-
 	let p:ptr<ptr<var i32>> = &r;
-	printf("\n%d %d\n", *r, **p);
 
+	let b:bool = false;
+	if (!b)
+	{
+		*r = 4;
+	}
+	printf("\n%d %d\n", *r, **p);
 	return 0;
 }
