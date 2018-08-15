@@ -67,10 +67,20 @@ main :: () -> i32
 		// Floating point values are inferred as f32 by default, f64's must be cast as such 
 		x = 1.0
 	};
-	// The 'if', 'for', and 'while' syntaxes are all the same as c and so are logical operators
+	// The 'if' and 'while' syntaxes are all the same as c and so are logical operators
 	if ((add(n, m) == (n+m)) || (n != m))
 	{
-		return 0;
 	}
+
+	// For loops have a different syntax than c, and are actually syntax sugar for a while loop
+	// This will count 0 to 10, inclusively
+	for (i:u32 in [0, 10])
+	{
+		// This will count 0 to 10, exclusively (i.e, 0 to 9)
+		for (j:u32 in [0, 10))
+		{
+			printf("%d, %d", i, j);
+		};
+	};
 	return 1;
 }

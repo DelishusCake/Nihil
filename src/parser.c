@@ -1,6 +1,7 @@
 #include "parser.h"
 
 /* Memory management */
+// NOTE: Possibly switch this back to using a linear allocator at some point
 static void freeExprList(exprList_t *expressions);
 static void freeStmtList(stmtList_t *statements);
 static void freeArgList(argList_t *arguments);
@@ -820,7 +821,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 				error(parser, name, "Expected identifier");
 				return NULL;
 			}
-			consume(parser, TOKEN_COLON, "Expected comma-separator");
+			consume(parser, TOKEN_COLON, "Expected type expression");
 			
 			// Parse the type, make sure it's marked as const by default
 			expr_t *type = parseType(parser, (TYPE_FLAG_CONST));
