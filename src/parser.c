@@ -1,215 +1,5 @@
 #include "parser.h"
 
-/* Memory management */
-// NOTE: Possibly switch this back to using a linear allocator at some point
-static void freeExprList(exprList_t *expressions);
-static void freeStmtList(stmtList_t *statements);
-static void freeArgList(argList_t *arguments);
-
-static expr_t* allocExpression()
-{
-	expr_t *expr = (expr_t*) malloc(sizeof(expr_t));
-	assert (expr);
-	zeroMemory(expr, sizeof(expr_t));
-	return expr;
-};
-static void freeExpr(expr_t *expr)
-{
-	if (expr)
-	{
-		switch (expr->type)
-		{
-			case EXPR_GROUP:
-			{
-				freeExpr(expr->group.expression);
-			} break;
-			case EXPR_CALL:
-			{
-				freeExpr(expr->call.callee);
-				freeExprList(&expr->call.args);
-			} break;
-			case EXPR_PRE_UNARY:
-			{
-				freeExpr(expr->pre_unary.right);
-			} break;
-			case EXPR_POST_UNARY:
-			{
-				freeExpr(expr->post_unary.left);
-			} break;
-			case EXPR_BINARY:
-			{
-				freeExpr(expr->binary.left);
-				freeExpr(expr->binary.right);
-			} break;
-			case EXPR_ASSIGNMENT:
-			{
-				freeExpr(expr->assignment.value);
-			} break;
-			case EXPR_PTR:
-			{
-				freeExpr(expr->ptr.to);
-			} break;
-
-			case EXPR_LITERAL:
-			case EXPR_BUILTIN:
-			case EXPR_VARIABLE:
-			case EXPR_NONE: break;
-		};
-		free(expr);
-	}
-};
-
-static stmt_t* allocStatement()
-{
-	stmt_t *stmt = (stmt_t*) malloc(sizeof(stmt_t));
-	assert (stmt);
-	zeroMemory(stmt, sizeof(stmt_t));
-	return stmt;
-};
-static void freeStmt(stmt_t *stmt)
-{
-	if (stmt)
-	{
-		switch (stmt->type)
-		{
-			case STMT_BLOCK:
-			{
-				freeStmtList(&stmt->block.statements);
-			} break;
-			case STMT_EXPR:
-			{
-				freeExpr(stmt->expression.expr);
-			} break;
-			case STMT_VAR:
-			{
-				freeExpr(stmt->var.initializer);
-			} break;
-			case STMT_IF:
-			{
-				freeExpr(stmt->conditional.condition);
-				freeStmt(stmt->conditional.thenBranch);
-				freeStmt(stmt->conditional.elseBranch);
-			} break;
-			case STMT_WHILE:
-			{
-				freeExpr(stmt->whileLoop.condition);
-				freeStmt(stmt->whileLoop.body);
-			} break;
-			case STMT_RETURN:
-			{
-				freeExpr(stmt->ret.value);
-			} break;
-			case STMT_FUNCTION:
-			{
-				freeStmt(stmt->function.body);
-				freeArgList(&stmt->function.arguments);
-			} break;
-
-			case STMT_NONE: break;
-		};
-		free(stmt);
-	} 
-};
-
-/* Statment/Expression list functions */
-static void pushStmt(stmtList_t *statements, stmt_t *stmt)
-{
-	if (!statements->size)
-	{
-		statements->count = 0;
-		statements->size = 16;
-		statements->data = malloc(statements->size*sizeof(stmt_t*));
-		assert (statements->data);
-	} else if ((statements->count + 1) >= statements->size) {
-		statements->size <<= 1;
-		statements->data = realloc(statements->data, statements->size*sizeof(stmt_t*));
-		assert (statements->data);
-	};
-	const u32 index = statements->count ++;
-	statements->data[index] = stmt;
-};
-static void freeStmtList(stmtList_t *statements)
-{
-	if (statements->data)
-	{
-		// Recursively free all inner statements and expressions
-		for (u32 i = 0; i < statements->count; i++)
-		{
-			stmt_t *stmt = statements->data[i];
-			freeStmt(stmt);
-			
-		};
-		// Free the actual array
-		free(statements->data);
-		// Zero the structure, just in case
-		zeroMemory(statements, sizeof(stmtList_t));
-	};
-};
-
-static void pushExpr(exprList_t *expressions, expr_t *expr)
-{
-	if (!expressions->size)
-	{
-		expressions->count = 0;
-		expressions->size = 16;
-		expressions->data = malloc(expressions->size*sizeof(expr_t*));
-		assert (expressions->data);
-	} else if ((expressions->count + 1) >= expressions->size) {
-		expressions->size <<= 1;
-		expressions->data = realloc(expressions->data, expressions->size*sizeof(expr_t*));
-		assert (expressions->data);
-	};
-	const u32 index = expressions->count ++;
-	expressions->data[index] = expr;
-};
-static void freeExprList(exprList_t *expressions)
-{
-	if (expressions->data)
-	{
-		// Recursively free all inner expressions
-		for (u32 i = 0; i < expressions->count; i++)
-		{
-			expr_t *expr = expressions->data[i];
-			freeExpr(expr);
-		};
-		// Free the actual array
-		free(expressions->data);
-		// Zero the structure, just in case
-		zeroMemory(expressions, sizeof(exprList_t));
-	};
-};
-
-static varDecl_t* pushVarDecl(argList_t *arguments)
-{
-	if (!arguments->size)
-	{
-		arguments->count = 0;
-		arguments->size = 16;
-		arguments->data = malloc(arguments->size*sizeof(varDecl_t));
-		assert (arguments->data);
-	} else if ((arguments->count + 1) >= arguments->size) {
-		arguments->size <<= 1;
-		arguments->data = realloc(arguments->data, arguments->size*sizeof(varDecl_t));
-		assert (arguments->data);
-	};
-	const u32 index = arguments->count ++;
-	return arguments->data + index;
-};
-static void freeArgList(argList_t *arguments)
-{
-	if (arguments->data)
-	{
-		for (u32 i = 0; i < arguments->count; i++)
-		{
-			varDecl_t *decl = (arguments->data + i);
-			// Free the type expression
-			freeExpr(decl->type);
-		};
-		// Free the data array itself
-		free(arguments->data);
-	};
-};
-
 // Write an error into the std out
 static void error(parser_t *parser, token_t token, const char *msg)
 {
@@ -243,7 +33,7 @@ static token_t peekNext(const parser_t *parser)
 static inline bool isAtEnd(const parser_t *parser)
 {
 	token_t token = peek(parser);
-	return token.type == EOF;
+	return token.type == TOKEN_EOF;
 };
 // Returns true if the current token's type matches the given type
 static inline bool check(const parser_t *parser, tokenType_t type)
@@ -632,9 +422,7 @@ static expr_t* parseExpression(parser_t *parser)
 	return parseAssignmentExpression(parser);
 };
 
-/* Type expression parsers */
-static expr_t* parseType(parser_t *parser, typeFlags_t flags);
-static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
+static typeFlags_t checkForVarKeyword(parser_t *parser, typeFlags_t flags)
 {
 	// Clear the const flag if the var type is set
 	{
@@ -645,6 +433,15 @@ static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
 				flags &= ~TYPE_FLAG_CONST;
 		}
 	}
+	return flags;
+};
+
+/* Type expression parsers */
+static expr_t* parseType(parser_t *parser, typeFlags_t flags);
+static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
+{
+	// Clear the const flag if the var type is set
+	flags = checkForVarKeyword(parser, flags);
 	// Check for basic types
 	{
 		const tokenType_t types[] = 
@@ -698,6 +495,7 @@ static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
 };
 static expr_t* parseType(parser_t *parser, typeFlags_t flags)
 {
+	flags = checkForVarKeyword(parser, flags);
 	// Parse pointer types
 	{
 		const tokenType_t types[] = { TOKEN_PTR };
@@ -899,7 +697,10 @@ static stmt_t* parseExpressionStatement(parser_t *parser)
 {
 	expr_t *expr = parseExpression(parser);
 	if (!expr)
+	{
 		return NULL;
+	}
+	
 	consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression");
 
 	stmt_t *stmt = allocStatement();
@@ -1184,7 +985,11 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 		if (stmt != NULL)
 		{
 			pushStmt(&parser->statements, stmt);
-		} else break;
+		}
+		if (isAtEnd(parser) || (parser->error != PARSER_NO_ERROR))
+		{
+			break;
+		}
 	}
 	return parser->error;
 }

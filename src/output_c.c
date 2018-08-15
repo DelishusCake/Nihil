@@ -49,7 +49,7 @@ static void output_token(buffer_t *buffer, const token_t *token)
 		case TOKEN_TRUE: 			str = "true"; break;
 		case TOKEN_FALSE: 			str = "false"; break;
 		case TOKEN_WHILE: 			str = "while"; break;
-		case TOKEN_NIL: 			str = "null"; break;
+		case TOKEN_NIL: 			str = "NULL"; break;
 		case TOKEN_RETURN: 			str = "return"; break;
 		case TOKEN_STRUCT: 			str = "struct"; break;
 		case TOKEN_UNION: 			str = "union"; break;
@@ -165,9 +165,9 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			const expr_t *to = expr->ptr.to;
 
 			output_expression(buffer, to);
-			writeString(buffer, " * ");
+			writeString(buffer, " *");
 			if(expr->ptr.flags & TYPE_FLAG_CONST)
-				writeString(buffer, "const");
+				writeString(buffer, " const");
 		} break;
 
 		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;

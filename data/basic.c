@@ -6,9 +6,14 @@
 #include <stdbool.h>
 #include <float.h>
 /* Function prototypes */
+void * return_nil(void);
 void do_print(uint32_t const lim);
 int32_t main(void);
 /* Code */
+void * return_nil(void)
+{
+	return NULL;
+}
 void do_print(uint32_t const lim)
 {
 	{
@@ -30,7 +35,7 @@ int32_t main(void)
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;
 	bool const b = false;
-	if (!b)
+	if (!b||!return_nil())
 	{
 		*r = 4;
 	}

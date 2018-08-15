@@ -2,6 +2,11 @@
 A basic syntax example for testing and whatnot.
 See basic.c for the output from this file
 */
+return_nil :: () -> ptr<var void>
+{
+	return nil;
+}
+
 do_print :: (lim:u32)
 {
 	// Non-inclusive:
@@ -23,7 +28,7 @@ main :: () -> i32
 	let p:ptr<ptr<var i32>> = &r;
 
 	let b:bool = false;
-	if (!b)
+	if (!b || !return_nil())
 	{
 		*r = 4;
 	}
