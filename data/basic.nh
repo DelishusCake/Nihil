@@ -30,7 +30,7 @@ main :: () -> i32
 	let b:bool = false;
 	if (!b || !return_nil())
 	{
-		*r = 4;
+		*r = 4 + 4;
 	}
 	printf("\n%d %d\n", *r, **p);
 	return 0;

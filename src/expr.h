@@ -102,4 +102,8 @@ void freeExpr(expr_t *expr);
 
 void pushExpr(exprList_t *expressions, expr_t *expr);
 
+expr_t *evaluateExprType(expr_t *expr);
+
+bool typeExpressionsMatch(expr_t *a, expr_t *b);
+
 #endif

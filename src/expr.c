@@ -87,3 +87,91 @@ static void freeExprList(exprList_t *expressions)
 		zeroMemory(expressions, sizeof(exprList_t));
 	};
 };
+
+// TODO: Make this a "soft" equation? Allow some differing types but throw a warning?
+bool typeExpressionsMatch(expr_t *a, expr_t *b)
+{
+	// TODO: Implement
+	return true;
+}
+
+expr_t *evaluateExprType(expr_t *expr)
+{
+	switch(expr->type)
+	{
+		case EXPR_GROUP:
+		{
+			// Return the type of the inner expression
+			return evaluateExprType(expr->group.expression);
+		} break;
+
+		case EXPR_BINARY:
+		{
+			expr_t *leftType = evaluateExprType(expr->binary.left);
+			expr_t *rightType = evaluateExprType(expr->binary.right);
+			if (!typeExpressionsMatch(leftType, rightType))
+			{
+				printf("Sides of binary expression do not match\n");
+				return NULL;
+			};
+			return leftType;
+		} break;
+
+		case EXPR_LITERAL:
+		{
+			// Get the literal token and it's token type
+			const token_t literal = expr->literal.value;
+			const tokenType_t literalType = literal.type;
+			if (literalType == TOKEN_STRING)
+			{
+				// TODO: Return a ptr<var char> type
+				printf("String type not implemented\n");
+				return NULL;
+			}
+			if (literalType == TOKEN_NIL)
+			{
+				// TODO: Return a ptr<var void> type
+				printf("Nil type not implemented\n");
+				return NULL;
+			}
+			
+			// Token type -> builtin type
+			tokenType_t type;
+			switch (expr->literal.value.type)
+			{
+				case TOKEN_TRUE:
+				case TOKEN_FALSE:
+				{
+					type = TOKEN_BOOL;
+				} break;
+				case TOKEN_INTEGER:
+				{
+					type = TOKEN_I32;
+				} break;
+				case TOKEN_FLOAT:
+				{
+					type = TOKEN_F32;
+				} break;
+				default:
+				{
+					printf("Primary type not implemented\n");
+				} return NULL;
+			};
+
+			token_t value = {};
+			value.type = type;
+
+			expr_t *typeExpr = allocExpression();
+			typeExpr->type = EXPR_BUILTIN;
+			typeExpr->builtin.flags = (TYPE_FLAG_CONST | TYPE_FLAG_BASIC);
+			typeExpr->builtin.value = value;
+			return typeExpr;
+		} break;
+
+
+		default:
+		{
+			printf("Couldn't evaluate type\n");
+		} return NULL;
+	};
+};

@@ -153,7 +153,12 @@ static expr_t* parseCallExpression(parser_t *parser)
 							error(parser, peek(parser), "Cannot have more than "stringify(MAX_ARGUMENTS)" arguments per function call.");
 							return NULL;
 						};
-						pushExpr(args, parseExpression(parser));
+						expr_t *expr = parseExpression(parser);
+						if (!expr)
+						{
+							return NULL;
+						}
+						pushExpr(args, expr);
 					} while (match(parser, next_types, static_len(next_types)));
 				}
 				// Consume the closing parenthesis

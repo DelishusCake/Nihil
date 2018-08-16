@@ -75,11 +75,10 @@ static void output_token(buffer_t *buffer, const token_t *token)
 	{
 		writeString(buffer, str);
 	} else {
-		if (token->type == TOKEN_STRING)
-			writeChar(buffer, '"');
+		const bool isString = (token->type == TOKEN_STRING);
+		if (isString) writeChar(buffer, '"');
 		writeStringLen(buffer, token->start, token->len);
-		if (token->type == TOKEN_STRING)
-			writeChar(buffer, '"');
+		if (isString) writeChar(buffer, '"');
 	}
 };
 static void output_expression(buffer_t *buffer, const expr_t *expr)
@@ -192,7 +191,6 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	}
 	writeString(buffer, ")");
 };
-
 static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
 	indent(buffer, index);
