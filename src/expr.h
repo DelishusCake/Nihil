@@ -34,6 +34,7 @@ typedef enum
 	EXPR_BINARY,
 	EXPR_LITERAL,
 	EXPR_VARIABLE,
+	// Assignment
 	EXPR_ASSIGNMENT,
 	// Type expressions
 	EXPR_PTR,
@@ -77,6 +78,7 @@ struct expr_s
 		{
 			token_t name;
 		} variable;
+
 		struct 
 		{
 			token_t operator;
@@ -97,13 +99,22 @@ struct expr_s
 	};
 };
 
+// Expression memory management functions
 expr_t* allocExpression();
 void freeExpr(expr_t *expr);
 
+#if DEBUG
+// Debug prints the expression
+// NOTE: Index is the starting indentation for the print
+void printExpr(expr_t *expr, u32 index);
+#endif
+
+// Expression list functions
 void pushExpr(exprList_t *expressions, expr_t *expr);
+void freeExprList(exprList_t *expressions);
 
-expr_t *evaluateExprType(expr_t *expr);
-
+// Type expression functions
+expr_t* evaluateExprType(expr_t *expr);
 bool typeExpressionsMatch(expr_t *a, expr_t *b);
 
 #endif

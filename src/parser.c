@@ -566,7 +566,16 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 							error(parser, peekPrev(parser), "Expected initializer");
 							return NULL;
 						};
+
 						// TODO: Check for initializer type
+						expr_t *typeOfInitializer = evaluateExprType(initializer);
+						if (typeOfInitializer != NULL)
+						{
+							printf("Type for: %.*s\n", name.len, name.start);
+							//printExpr(initializer, 0);
+							printExpr(typeOfInitializer, 0);
+							freeExpr(typeOfInitializer);
+						}
 					} else {
 						// If the type is supposed to be constant, throw an error if there's no initializer
 						if (typeFlags & TYPE_FLAG_CONST) 
@@ -587,6 +596,17 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 						return NULL;
 					};
 					// TODO: Check for initializer type
+					expr_t *typeOfInitializer = evaluateExprType(initializer);
+					if (typeOfInitializer != NULL)
+					{
+						printf("Type for: %.*s\n", name.len, name.start);
+						printExpr(typeOfInitializer, 0);
+						//freeExpr(typeOfInitializer);
+						type = typeOfInitializer;
+					} else {
+						error(parser, peekPrev(parser), "Couldn't determine type for type-inferenced variable");
+						return NULL;
+					}
 				} break;
 				// It can only be : or :=, just shut up gcc
 				default: break;

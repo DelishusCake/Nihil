@@ -1,7 +1,5 @@
 #include "expr.h"
 
-static void freeExprList(exprList_t *expressions);
-
 expr_t* allocExpression()
 {
 	expr_t *expr = (expr_t*) malloc(sizeof(expr_t));
@@ -55,6 +53,93 @@ void freeExpr(expr_t *expr)
 	}
 };
 
+static void indent(u32 index)
+{
+	for (u32 i = 0; i < index; i++)
+		printf("\t");
+};	
+static void printExprList(exprList_t *list, u32 index)
+{
+	if (list && list->count)
+	{
+		for (u32 i = 0; i < list->count; i++)
+		{
+			printExpr(list->data[i], index);
+		};
+	}
+};
+static void printBuiltin(const token_t *token)
+{
+	switch(token->type)
+	{
+		case TOKEN_F32: printf("f32"); break;
+		case TOKEN_I32: printf("i32"); break;
+		case TOKEN_BOOL: printf("bool"); break;
+		default: break;
+	};
+};
+void printExpr(expr_t *expr, u32 index)
+{
+	indent(index);
+	switch(expr->type)
+	{
+		case EXPR_CALL:
+		{
+			printf("EXPR_CALL\n");
+			printExpr(expr->call.callee, index+1);
+			printExprList(&expr->call.args, index+1);
+		} break;
+		case EXPR_GROUP:
+		{
+			printf("EXPR_GROUP\n");
+			printExpr(expr->group.expression, index+1);
+		} break;
+		case EXPR_PRE_UNARY:
+		{
+			printf("EXPR_PRE_UNARY\n");
+		} break;
+		case EXPR_POST_UNARY:
+		{
+			printf("EXPR_POST_UNARY\n");
+
+		} break;
+		case EXPR_BINARY:
+		{
+			printf("EXPR_BINARY\n");
+
+		} break;
+		case EXPR_LITERAL:
+		{
+			printf("EXPR_LITERAL\n");
+
+		} break;
+		case EXPR_VARIABLE:
+		{
+			printf("EXPR_VARIABLE\n");
+
+		} break;
+		case EXPR_ASSIGNMENT:
+		{
+			printf("EXPR_ASSIGNMENT\n");
+
+		} break;
+		case EXPR_PTR:
+		{
+			printf("EXPR_PTR\n");
+
+		} break;
+		case EXPR_BUILTIN:
+		{
+			printf("EXPR_BUILTIN: ");
+			printBuiltin(&expr->builtin.value);
+			printf("\n");
+		} break;
+
+		default:
+		case EXPR_NONE: printf("Unknown\n"); break;
+	}
+}
+
 void pushExpr(exprList_t *expressions, expr_t *expr)
 {
 	if (!expressions->size)
@@ -71,7 +156,7 @@ void pushExpr(exprList_t *expressions, expr_t *expr)
 	const u32 index = expressions->count ++;
 	expressions->data[index] = expr;
 };
-static void freeExprList(exprList_t *expressions)
+void freeExprList(exprList_t *expressions)
 {
 	if (expressions->data)
 	{
@@ -95,7 +180,7 @@ bool typeExpressionsMatch(expr_t *a, expr_t *b)
 	return true;
 }
 
-expr_t *evaluateExprType(expr_t *expr)
+expr_t* evaluateExprType(expr_t *expr)
 {
 	switch(expr->type)
 	{
@@ -107,13 +192,16 @@ expr_t *evaluateExprType(expr_t *expr)
 
 		case EXPR_BINARY:
 		{
+			// Get the type expressions for the left and right parts of the expression
 			expr_t *leftType = evaluateExprType(expr->binary.left);
 			expr_t *rightType = evaluateExprType(expr->binary.right);
+			// Check that they match
 			if (!typeExpressionsMatch(leftType, rightType))
 			{
 				printf("Sides of binary expression do not match\n");
 				return NULL;
 			};
+			// Return either or, they're the same so it doesn't matter
 			return leftType;
 		} break;
 
@@ -168,10 +256,17 @@ expr_t *evaluateExprType(expr_t *expr)
 			return typeExpr;
 		} break;
 
+		case EXPR_PRE_UNARY:
+		case EXPR_POST_UNARY:
+		{
+			printf("Pre- and Post-Unary types not implemented\n");
+		} break;
+
 
 		default:
 		{
-			printf("Couldn't evaluate type\n");
-		} return NULL;
+			printf("Couldn't evaluate type: type %d\n", expr->type);
+		};
 	};
+	return NULL;
 };

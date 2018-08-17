@@ -34,10 +34,11 @@ int32_t main(void)
 	int32_t n = 1;
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;
+	int32_t const m = 32;
 	bool const b = false;
 	if (!b||!return_nil())
 	{
-		*r = 4;
+		*r = 4+4;
 	}
 
 	printf("\n%d %d\n", *r, **p);
