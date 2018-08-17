@@ -76,6 +76,91 @@ static bool consume_check(parser_t *parser, tokenType_t type, const char *msg)
 // Eat a token type or return NULL from the current function if it doesn't match
 #define consume(parser, type, msg)		{ if(!consume_check(parser, type, msg)) return NULL; }
 
+static typeFlags_t checkForVarKeyword(parser_t *parser, typeFlags_t flags)
+{
+	// Clear the const flag if the var type is set
+	{
+		const tokenType_t types[] = { TOKEN_VAR };
+		if (match(parser, types, static_len(types)))
+		{
+			if (flags & TYPE_FLAG_CONST)
+				flags &= ~TYPE_FLAG_CONST;
+		}
+	}
+	return flags;
+};
+
+/* Type expression parsers */
+static expr_t* parseType(parser_t *parser, typeFlags_t flags);
+static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
+{
+	// Clear the const flag if the var type is set
+	flags = checkForVarKeyword(parser, flags);
+	// Check for basic types
+	{
+		const tokenType_t types[] = 
+		{
+			TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
+			TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
+			TOKEN_F32, TOKEN_F64, 
+			TOKEN_BOOL, TOKEN_CHAR,
+			TOKEN_VOID
+		};
+		if (match(parser, types, static_len(types)))
+		{
+			token_t value = peekPrev(parser);
+
+			// Set the basic flag
+			flags |= TYPE_FLAG_BASIC;
+			// If the type is a return type, then const does nothing. Just flip it off
+			if (flags & TYPE_FLAG_RETURN)
+			{
+				flags &= ~TYPE_FLAG_CONST;
+			};
+
+			expr_t *expr = allocExpression();
+			expr->type = EXPR_BUILTIN;
+			expr->builtin.value = value;
+			expr->builtin.flags = flags;
+			return expr;
+		};
+	}
+	return NULL;
+};
+static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
+{
+	consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression");
+
+	// Default to constant inner types
+	expr_t *to = parseType(parser, (TYPE_FLAG_CONST));
+	if (!to)
+	{
+		error(parser, peek(parser), "Expected type expression for ptr statement");
+		return NULL;
+	}
+
+	consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression");
+
+	expr_t *expr = allocExpression();
+	expr->type = EXPR_PTR;
+	expr->ptr.to = to;
+	expr->ptr.flags = flags;
+	return expr;
+};
+static expr_t* parseType(parser_t *parser, typeFlags_t flags)
+{
+	flags = checkForVarKeyword(parser, flags);
+	// Parse pointer types
+	{
+		const tokenType_t types[] = { TOKEN_PTR };
+		if (match(parser, types, static_len(types)))
+		{
+			return parsePtrType(parser, flags);
+		};
+	}
+	return parseBuiltinType(parser, flags);
+};
+
 /* Basic expression parsers */
 static expr_t* parseExpression(parser_t *parser);
 static expr_t* parsePrimaryExpression(parser_t *parser)
@@ -110,19 +195,43 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 			return lit;
 		}
 	}
-	// Check for groupings
+	// Check for groupings/cast
 	{
 		const tokenType_t types[] = { TOKEN_OPEN_PAREN };
 		if (match(parser, types, static_len(types)))
 		{
-			expr_t *expr = parseExpression(parser);
-			
-			consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression");
-			
-			expr_t *group = allocExpression();
-			group->type = EXPR_GROUP;
-			group->group.expression = expr;
-			return group;
+			expr_t *typeExpr = parseType(parser, 0);
+			if (typeExpr)
+			{
+				// Cast expression
+				consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close cast");
+
+				expr_t *expr = parseExpression(parser);
+				if (!expr)
+				{
+					return NULL;
+				}
+
+				expr_t *cast = allocExpression();
+				cast->type = EXPR_CAST;
+				cast->cast.type = typeExpr;
+				cast->cast.expression = expr;
+				return cast;
+			} else {
+				// Basic group
+				expr_t *expr = parseExpression(parser);
+				if (!expr)
+				{
+					return NULL;
+				}
+
+				consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression");
+				
+				expr_t *group = allocExpression();
+				group->type = EXPR_GROUP;
+				group->group.expression = expr;
+				return group;
+			}
 		}
 	}
 	return NULL;
@@ -427,91 +536,6 @@ static expr_t* parseExpression(parser_t *parser)
 	return parseAssignmentExpression(parser);
 };
 
-static typeFlags_t checkForVarKeyword(parser_t *parser, typeFlags_t flags)
-{
-	// Clear the const flag if the var type is set
-	{
-		const tokenType_t types[] = { TOKEN_VAR };
-		if (match(parser, types, static_len(types)))
-		{
-			if (flags & TYPE_FLAG_CONST)
-				flags &= ~TYPE_FLAG_CONST;
-		}
-	}
-	return flags;
-};
-
-/* Type expression parsers */
-static expr_t* parseType(parser_t *parser, typeFlags_t flags);
-static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
-{
-	// Clear the const flag if the var type is set
-	flags = checkForVarKeyword(parser, flags);
-	// Check for basic types
-	{
-		const tokenType_t types[] = 
-		{
-			TOKEN_U8, TOKEN_U16, TOKEN_U32, TOKEN_U64,
-			TOKEN_I8, TOKEN_I16, TOKEN_I32, TOKEN_I64,
-			TOKEN_F32, TOKEN_F64, 
-			TOKEN_BOOL, TOKEN_CHAR,
-			TOKEN_VOID
-		};
-		if (match(parser, types, static_len(types)))
-		{
-			token_t value = peekPrev(parser);
-
-			// Set the basic flag
-			flags |= TYPE_FLAG_BASIC;
-			// If the type is a return type, then const does nothing. Just flip it off
-			if (flags & TYPE_FLAG_RETURN)
-			{
-				flags &= ~TYPE_FLAG_CONST;
-			};
-
-			expr_t *expr = allocExpression();
-			expr->type = EXPR_BUILTIN;
-			expr->builtin.value = value;
-			expr->builtin.flags = flags;
-			return expr;
-		};
-	}
-	return NULL;
-};
-static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
-{
-	consume(parser, TOKEN_LESS, "Expected opening '<' for pointer expression");
-
-	// Default to constant inner types
-	expr_t *to = parseType(parser, (TYPE_FLAG_CONST));
-	if (!to)
-	{
-		error(parser, peek(parser), "Expected type expression for ptr statement");
-		return NULL;
-	}
-
-	consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression");
-
-	expr_t *expr = allocExpression();
-	expr->type = EXPR_PTR;
-	expr->ptr.to = to;
-	expr->ptr.flags = flags;
-	return expr;
-};
-static expr_t* parseType(parser_t *parser, typeFlags_t flags)
-{
-	flags = checkForVarKeyword(parser, flags);
-	// Parse pointer types
-	{
-		const tokenType_t types[] = { TOKEN_PTR };
-		if (match(parser, types, static_len(types)))
-		{
-			return parsePtrType(parser, flags);
-		};
-	}
-	return parseBuiltinType(parser, flags);
-};
-
 /* Declaration statement parsers */
 static stmt_t* parseStatement(parser_t *parser);
 static stmt_t* parseBlockStatement(parser_t *parser);
@@ -568,14 +592,15 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 						};
 
 						// TODO: Check for initializer type
+						#if 0
 						expr_t *typeOfInitializer = evaluateExprType(initializer);
 						if (typeOfInitializer != NULL)
 						{
 							printf("Type for: %.*s\n", name.len, name.start);
-							//printExpr(initializer, 0);
 							printExpr(typeOfInitializer, 0);
 							freeExpr(typeOfInitializer);
 						}
+						#endif
 					} else {
 						// If the type is supposed to be constant, throw an error if there's no initializer
 						if (typeFlags & TYPE_FLAG_CONST) 

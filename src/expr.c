@@ -13,6 +13,11 @@ void freeExpr(expr_t *expr)
 	{
 		switch (expr->type)
 		{
+			case EXPR_CAST:
+			{
+				freeExpr(expr->cast.type);
+				freeExpr(expr->cast.expression);
+			} break;
 			case EXPR_GROUP:
 			{
 				freeExpr(expr->group.expression);
@@ -73,7 +78,14 @@ static void printBuiltin(const token_t *token)
 	switch(token->type)
 	{
 		case TOKEN_F32: printf("f32"); break;
+		case TOKEN_I8:  printf("i8"); break;
+		case TOKEN_I16: printf("i16"); break;
 		case TOKEN_I32: printf("i32"); break;
+		case TOKEN_I64: printf("i64"); break;
+		case TOKEN_U8:  printf("u8"); break;
+		case TOKEN_U16: printf("u16"); break;
+		case TOKEN_U32: printf("u32"); break;
+		case TOKEN_U64: printf("u64"); break;
 		case TOKEN_BOOL: printf("bool"); break;
 		default: break;
 	};
@@ -180,15 +192,69 @@ bool typeExpressionsMatch(expr_t *a, expr_t *b)
 	return true;
 }
 
+static expr_t* evaluateTypeOfLiteral(const expr_t *expr)
+{
+	// Get the literal token and it's token type
+	const token_t literal = expr->literal.value;
+	const tokenType_t literalType = literal.type;
+	if (literalType == TOKEN_STRING)
+	{
+		// TODO: Return a ptr<var char> type
+		printf("String type not implemented\n");
+		return NULL;
+	}
+	if (literalType == TOKEN_NIL)
+	{
+		// TODO: Return a ptr<var void> type
+		printf("Nil type not implemented\n");
+		return NULL;
+	}
+	
+	// Token type -> builtin type
+	tokenType_t type;
+	switch (expr->literal.value.type)
+	{
+		case TOKEN_TRUE:
+		case TOKEN_FALSE:
+		{
+			type = TOKEN_BOOL;
+		} break;
+		case TOKEN_INTEGER:
+		{
+			type = TOKEN_I32;
+		} break;
+		case TOKEN_FLOAT:
+		{
+			type = TOKEN_F32;
+		} break;
+		default:
+		{
+			printf("Primary type not implemented\n");
+		} return NULL;
+	};
+
+	token_t value = {};
+	value.type = type;
+
+	expr_t *typeExpr = allocExpression();
+	typeExpr->type = EXPR_BUILTIN;
+	typeExpr->builtin.flags = (TYPE_FLAG_CONST | TYPE_FLAG_BASIC);
+	typeExpr->builtin.value = value;
+	return typeExpr;
+};
 expr_t* evaluateExprType(expr_t *expr)
 {
 	switch(expr->type)
 	{
 		case EXPR_GROUP:
-		{
 			// Return the type of the inner expression
-			return evaluateExprType(expr->group.expression);
-		} break;
+			return evaluateExprType(expr->group.expression);;
+		case EXPR_LITERAL:
+			return evaluateTypeOfLiteral(expr);
+
+		case EXPR_CAST:
+			// Just return the cast type
+			return expr->cast.type;
 
 		case EXPR_BINARY:
 		{
@@ -205,63 +271,11 @@ expr_t* evaluateExprType(expr_t *expr)
 			return leftType;
 		} break;
 
-		case EXPR_LITERAL:
-		{
-			// Get the literal token and it's token type
-			const token_t literal = expr->literal.value;
-			const tokenType_t literalType = literal.type;
-			if (literalType == TOKEN_STRING)
-			{
-				// TODO: Return a ptr<var char> type
-				printf("String type not implemented\n");
-				return NULL;
-			}
-			if (literalType == TOKEN_NIL)
-			{
-				// TODO: Return a ptr<var void> type
-				printf("Nil type not implemented\n");
-				return NULL;
-			}
-			
-			// Token type -> builtin type
-			tokenType_t type;
-			switch (expr->literal.value.type)
-			{
-				case TOKEN_TRUE:
-				case TOKEN_FALSE:
-				{
-					type = TOKEN_BOOL;
-				} break;
-				case TOKEN_INTEGER:
-				{
-					type = TOKEN_I32;
-				} break;
-				case TOKEN_FLOAT:
-				{
-					type = TOKEN_F32;
-				} break;
-				default:
-				{
-					printf("Primary type not implemented\n");
-				} return NULL;
-			};
-
-			token_t value = {};
-			value.type = type;
-
-			expr_t *typeExpr = allocExpression();
-			typeExpr->type = EXPR_BUILTIN;
-			typeExpr->builtin.flags = (TYPE_FLAG_CONST | TYPE_FLAG_BASIC);
-			typeExpr->builtin.value = value;
-			return typeExpr;
-		} break;
-
 		case EXPR_PRE_UNARY:
 		case EXPR_POST_UNARY:
 		{
 			printf("Pre- and Post-Unary types not implemented\n");
 		} break;
-
 
 		default:
 		{

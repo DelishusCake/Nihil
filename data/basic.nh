@@ -23,17 +23,20 @@ main :: () -> i32
 	do_print(100);
 
 	// Basic pointer types!
-	let var n:i32 = 1;
+	let var n:i32 = (i32) 1;
 	let r:ptr<var i32> = &n;
 	let p:ptr<ptr<var i32>> = &r;
+	
 	// Basic type inferencing
 	let var m := 32;
+	let var k := (u32)(m + m);
 
 	let b := false;
 	if (!b || !return_nil())
 	{
 		*r = 4 + 4;
 	}
+
 	printf("\n%d %d\n", *r, **p);
 	return 0;
 }

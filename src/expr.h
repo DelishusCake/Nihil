@@ -28,6 +28,7 @@ typedef enum
 	EXPR_NONE,
 	// Expressions
 	EXPR_CALL,
+	EXPR_CAST,
 	EXPR_GROUP,
 	EXPR_PRE_UNARY,
 	EXPR_POST_UNARY,
@@ -50,6 +51,11 @@ struct expr_s
 			expr_t *callee;
 			exprList_t args;
 		} call;
+		struct
+		{
+			expr_t *type;
+			expr_t *expression;
+		} cast;
 		struct
 		{
 			expr_t *expression;

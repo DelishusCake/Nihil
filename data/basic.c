@@ -31,10 +31,11 @@ void do_print(uint32_t const lim)
 int32_t main(void)
 {
 	do_print(100);
-	int32_t n = 1;
+	int32_t n = (int32_t)1;
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;
 	int32_t const m = 32;
+	uint32_t k = (uint32_t)(m+m);
 	bool const b = false;
 	if (!b||!return_nil())
 	{

@@ -85,6 +85,16 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 {
 	switch(expr->type)
 	{
+		case EXPR_CAST:
+		{
+			const expr_t *type = expr->cast.type;
+			const expr_t *expression = expr->cast.expression;
+
+			writeChar(buffer, '(');
+			output_expression(buffer, type);
+			writeChar(buffer, ')');
+			output_expression(buffer, expression);
+		} break;
 		case EXPR_GROUP:
 		{
 			const expr_t *inner = expr->group.expression;
