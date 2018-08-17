@@ -200,7 +200,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		const tokenType_t types[] = { TOKEN_OPEN_PAREN };
 		if (match(parser, types, static_len(types)))
 		{
-			expr_t *typeExpr = parseType(parser, 0);
+			expr_t *typeExpr = parseType(parser, (TYPE_FLAG_CONST));
 			if (typeExpr)
 			{
 				// Cast expression
