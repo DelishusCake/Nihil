@@ -620,18 +620,17 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 						error(parser, peekPrev(parser), "Expected initializer for type-inferenced variable declaration");
 						return NULL;
 					};
-					// TODO: Check for initializer type
-					expr_t *typeOfInitializer = evaluateExprType(initializer);
-					if (typeOfInitializer != NULL)
+					
+					type = evaluateExprType(initializer, typeFlags);
+					if (!type)
 					{
-						printf("Type for: %.*s\n", name.len, name.start);
-						printExpr(typeOfInitializer, 0);
-						//freeExpr(typeOfInitializer);
-						type = typeOfInitializer;
-					} else {
 						error(parser, peekPrev(parser), "Couldn't determine type for type-inferenced variable");
 						return NULL;
 					}
+					#if DEBUG
+					printf("Type for: %.*s\n", name.len, name.start);
+					printExpr(type, 0);
+					#endif
 				} break;
 				// It can only be : or :=, just shut up gcc
 				default: break;

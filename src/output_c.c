@@ -85,6 +85,19 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 {
 	switch(expr->type)
 	{
+		// C output: <value>
+		case EXPR_LITERAL:
+		{
+			const token_t *value = &expr->literal.value; 
+			output_token(buffer, value);
+		} break;
+		// C output: <name>
+		case EXPR_VARIABLE:
+		{
+			const token_t *name = &expr->variable.name;
+			output_token(buffer, name);
+		} break;
+		// C output: (<type>) <expr>
 		case EXPR_CAST:
 		{
 			const expr_t *type = expr->cast.type;
@@ -95,6 +108,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			writeChar(buffer, ')');
 			output_expression(buffer, expression);
 		} break;
+		// C output: (<inner>)
 		case EXPR_GROUP:
 		{
 			const expr_t *inner = expr->group.expression;
@@ -103,6 +117,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			output_expression(buffer, inner);
 			writeChar(buffer, ')');
 		} break;
+		// C output: <operator><right>
 		case EXPR_PRE_UNARY:
 		{
 			const token_t *operator = &expr->pre_unary.operator; 
@@ -111,6 +126,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			output_token(buffer, operator);
 			output_expression(buffer, right);
 		} break;
+		// C output: <left><operator>
 		case EXPR_POST_UNARY:
 		{
 			const token_t *operator = &expr->post_unary.operator; 
@@ -119,6 +135,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			output_expression(buffer, left);
 			output_token(buffer, operator);
 		} break;
+		// C output: <left><operator><right>
 		case EXPR_BINARY:
 		{
 			const token_t *operator = &expr->binary.operator; 
@@ -129,16 +146,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			output_token(buffer, operator);
 			output_expression(buffer, right);
 		} break;
-		case EXPR_LITERAL:
-		{
-			const token_t *value = &expr->literal.value; 
-			output_token(buffer, value);
-		} break;
-		case EXPR_VARIABLE:
-		{
-			const token_t *name = &expr->variable.name;
-			output_token(buffer, name);
-		} break;
+		// C output: <name> <operator> <value>
 		case EXPR_ASSIGNMENT:
 		{
 			const token_t *operator = &expr->assignment.operator;
@@ -150,6 +158,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			writeChar(buffer, ' ');
 			output_expression(buffer, value);
 		} break;
+		// C output: <callee>(<arg_0>, ..., <arg_n>)
 		case EXPR_CALL:
 		{
 			output_expression(buffer, expr->call.callee);
@@ -162,6 +171,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			};
 			writeChar(buffer, ')');
 		} break;
+		// C output: <value> ?const
 		case EXPR_BUILTIN:
 		{
 			const token_t *value = &expr->builtin.value;
@@ -169,6 +179,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 			if (expr->builtin.flags & TYPE_FLAG_CONST)
 				writeString(buffer, " const");
 		} break;
+		// C output: <to> * ?const
 		case EXPR_PTR:
 		{
 			const expr_t *to = expr->ptr.to;

@@ -9,6 +9,9 @@ Nihil is a small programming language that compiles to C. It is not intended as 
 At the moment the language is *somewhat* usable, it correctly parses and outputs basic programs, but does no type/scope checking. The following items still need to be done:
 
 * Type/scope checking
+* Better optimization
+  * Constant folding (should be easy, values are constant by default)
+  * Function inlining
 * Support for `struct`, `enum`, and `union`
 * Better error reporting
   * ERROR [line:character] is pretty lame

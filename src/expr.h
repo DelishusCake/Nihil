@@ -120,7 +120,7 @@ void pushExpr(exprList_t *expressions, expr_t *expr);
 void freeExprList(exprList_t *expressions);
 
 // Type expression functions
-expr_t* evaluateExprType(expr_t *expr);
+expr_t* evaluateExprType(expr_t *expr, typeFlags_t flags);
 bool typeExpressionsMatch(expr_t *a, expr_t *b);
 
 #endif

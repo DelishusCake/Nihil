@@ -78,14 +78,19 @@ static void printBuiltin(const token_t *token)
 	switch(token->type)
 	{
 		case TOKEN_F32: printf("f32"); break;
+		case TOKEN_F64: printf("f64"); break;
+		
 		case TOKEN_I8:  printf("i8"); break;
 		case TOKEN_I16: printf("i16"); break;
 		case TOKEN_I32: printf("i32"); break;
 		case TOKEN_I64: printf("i64"); break;
+
 		case TOKEN_U8:  printf("u8"); break;
 		case TOKEN_U16: printf("u16"); break;
 		case TOKEN_U32: printf("u32"); break;
 		case TOKEN_U64: printf("u64"); break;
+
+		case TOKEN_CHAR: printf("char"); break;
 		case TOKEN_BOOL: printf("bool"); break;
 		default: break;
 	};
@@ -192,7 +197,7 @@ bool typeExpressionsMatch(expr_t *a, expr_t *b)
 	return true;
 }
 
-static expr_t* evaluateTypeOfLiteral(const expr_t *expr)
+static expr_t* evaluateTypeOfLiteral(const expr_t *expr, typeFlags_t flags)
 {
 	// Get the literal token and it's token type
 	const token_t literal = expr->literal.value;
@@ -238,29 +243,30 @@ static expr_t* evaluateTypeOfLiteral(const expr_t *expr)
 
 	expr_t *typeExpr = allocExpression();
 	typeExpr->type = EXPR_BUILTIN;
-	typeExpr->builtin.flags = (TYPE_FLAG_CONST | TYPE_FLAG_BASIC);
+	typeExpr->builtin.flags = (flags | TYPE_FLAG_BASIC);
 	typeExpr->builtin.value = value;
 	return typeExpr;
 };
-expr_t* evaluateExprType(expr_t *expr)
+expr_t* evaluateExprType(expr_t *expr, typeFlags_t flags)
 {
 	switch(expr->type)
 	{
 		case EXPR_GROUP:
 			// Return the type of the inner expression
-			return evaluateExprType(expr->group.expression);;
+			return evaluateExprType(expr->group.expression, flags);
 		case EXPR_LITERAL:
-			return evaluateTypeOfLiteral(expr);
+			return evaluateTypeOfLiteral(expr, flags);
 
 		case EXPR_CAST:
 			// Just return the cast type
+			// TODO: Make sure to handle const flags
 			return expr->cast.type;
 
 		case EXPR_BINARY:
 		{
 			// Get the type expressions for the left and right parts of the expression
-			expr_t *leftType = evaluateExprType(expr->binary.left);
-			expr_t *rightType = evaluateExprType(expr->binary.right);
+			expr_t *leftType = evaluateExprType(expr->binary.left, flags);
+			expr_t *rightType = evaluateExprType(expr->binary.right, flags);
 			// Check that they match
 			if (!typeExpressionsMatch(leftType, rightType))
 			{
