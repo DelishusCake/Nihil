@@ -31,6 +31,7 @@ void do_print(uint32_t const lim)
 int32_t main(void)
 {
 	do_print(100);
+	ERROR NOT IMPLEMENTED
 	int32_t n = 1;
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;

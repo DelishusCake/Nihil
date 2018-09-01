@@ -640,7 +640,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 
 	consume(parser, TOKEN_SEMICOLON, "Expected ';' after variable declaration");
 	
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_VAR;
 	stmt->var.decl.name = name;
 	stmt->var.decl.type = type;
@@ -703,7 +703,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 	stmt_t *body = parseBlockStatement(parser);
 	if (!body) return NULL;
 
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_FUNCTION;
 	stmt->function.decl.name = name;
 	stmt->function.decl.type = type;
@@ -752,14 +752,14 @@ static stmt_t* parseExpressionStatement(parser_t *parser)
 	
 	consume(parser, TOKEN_SEMICOLON, "Expected ';' after expression");
 
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_EXPR;
 	stmt->expression.expr = expr;
 	return stmt;
 };
 static stmt_t* parseBlockStatement(parser_t *parser)
 {
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_BLOCK;
 
 	stmtList_t *statements = &stmt->block.statements;
@@ -847,12 +847,12 @@ static stmt_t* parseForStatement(parser_t *parser)
 		increment->post_unary.operator = operator;
 		increment->post_unary.left = var;
 
-		stmt_t *inc_stmt = allocStatement();
+		stmt_t *inc_stmt = allocStmt();
 		inc_stmt->type = STMT_EXPR;
 		inc_stmt->expression.expr = increment;
 
 		//Alloc the overall statement
-		stmt_t *stmt = allocStatement();
+		stmt_t *stmt = allocStmt();
 		stmt->type = STMT_BLOCK;
 		stmtList_t *statements = &stmt->block.statements;
 		// Add the body statement 
@@ -877,7 +877,7 @@ static stmt_t* parseForStatement(parser_t *parser)
 		condition->binary.right = close;
 
 		// Add a while statement with the conditional and the body
-		stmt_t *stmt = allocStatement();
+		stmt_t *stmt = allocStmt();
 		stmt->type = STMT_WHILE;
 		stmt->whileLoop.condition = condition;
 		stmt->whileLoop.body = body;
@@ -887,13 +887,13 @@ static stmt_t* parseForStatement(parser_t *parser)
 	// Add the declaration
 	{
 		// Create the declaration
-		stmt_t *declaration = allocStatement();
+		stmt_t *declaration = allocStmt();
 		declaration->type = STMT_VAR;
 		declaration->var.decl.name = name;
 		declaration->var.decl.type = type;
 		declaration->var.initializer = open;
 
-		stmt_t *stmt = allocStatement();
+		stmt_t *stmt = allocStmt();
 		stmt->type = STMT_BLOCK;
 		stmtList_t *statements = &stmt->block.statements;
 		// Add the initializer statement
@@ -919,7 +919,7 @@ static stmt_t* parseWhileStatement(parser_t *parser)
 		return NULL;
 	};
 
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_WHILE;
 	stmt->whileLoop.condition = condition;
 	stmt->whileLoop.body = body;
@@ -954,7 +954,7 @@ static stmt_t* parseIfStatement(parser_t *parser)
 		}
 	}
 
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_IF;
 	stmt->conditional.condition = condition;
 	stmt->conditional.thenBranch = thenBranch;
@@ -971,9 +971,23 @@ static stmt_t* parseReturnStatement(parser_t *parser)
 	};
 	consume(parser, TOKEN_SEMICOLON, "Expected ';' after return statement");
 
-	stmt_t *stmt = allocStatement();
+	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_RETURN;
 	stmt->ret.value = value;
+	return stmt;
+};
+static stmt_t* parseDeferStatement(parser_t *parser)
+{
+	stmt_t *deferred = parseStatement(parser);
+	if (!deferred)
+	{
+		error(parser, peek(parser), "Expected deferred statement");
+		return NULL;
+	};
+
+	stmt_t *stmt = allocStmt();
+	stmt->type = STMT_DEFER;
+	stmt->defer.stmt = stmt;
 	return stmt;
 };
 static stmt_t* parseStatement(parser_t *parser)
@@ -1016,6 +1030,14 @@ static stmt_t* parseStatement(parser_t *parser)
 		if (match(parser, types, static_len(types)))
 		{
 			return parseReturnStatement(parser);
+		};
+	}
+	// Defer statment
+	{
+		const tokenType_t types[] = { TOKEN_DEFER };
+		if (match(parser, types, static_len(types)))
+		{
+			return parseDeferStatement(parser);
 		};
 	}
 	return parseExpressionStatement(parser);

@@ -1,6 +1,6 @@
 #include "stmt.h"
 
-stmt_t* allocStatement()
+stmt_t* allocStmt()
 {
 	stmt_t *stmt = (stmt_t*) malloc(sizeof(stmt_t));
 	assert (stmt);
@@ -39,6 +39,10 @@ void freeStmt(stmt_t *stmt)
 			case STMT_RETURN:
 			{
 				freeExpr(stmt->ret.value);
+			} break;
+			case STMT_DEFER:
+			{
+				freeStmt(stmt->defer.stmt);
 			} break;
 			case STMT_FUNCTION:
 			{

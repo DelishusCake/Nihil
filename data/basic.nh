@@ -22,6 +22,8 @@ main :: () -> i32
 {
 	do_print(100);
 
+	defer print("Hi!\n");
+
 	// Basic pointer types!
 	let var n := 1;
 	let r:ptr<var i32> = &n;

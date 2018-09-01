@@ -37,6 +37,7 @@ typedef enum
 	STMT_BLOCK,
 	STMT_WHILE,
 	STMT_RETURN,
+	STMT_DEFER,
 	// Declarations
 	STMT_VAR,
 	STMT_FUNCTION,
@@ -76,6 +77,10 @@ struct stmt_s
 		} ret;
 		struct
 		{
+			stmt_t *stmt;
+		} defer;
+		struct
+		{
 			varDecl_t decl;
 			argList_t arguments;
 			stmt_t *body;
@@ -83,7 +88,7 @@ struct stmt_s
 	};
 };
 
-stmt_t* allocStatement();
+stmt_t* allocStmt();
 void freeStmt(stmt_t *stmt);
 
 void pushStmt(stmtList_t *statements, stmt_t *stmt);

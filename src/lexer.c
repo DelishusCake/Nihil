@@ -42,6 +42,7 @@ static keyword_t g_keywords[] =
 	{ "nil", TOKEN_NIL },
 	{ "extern", TOKEN_EXTERN },
 	{ "return", TOKEN_RETURN },
+	{ "defer", TOKEN_DEFER },
 	{ "struct", TOKEN_STRUCT },
 	{ "union", TOKEN_UNION },
 	{ "enum", TOKEN_ENUM },
