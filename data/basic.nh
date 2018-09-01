@@ -22,12 +22,15 @@ main :: () -> i32
 {
 	do_print(100);
 
-	defer print("Hi!\n");
+	// Defered expressions!
+	defer printf("Hi!\n");
 
 	// Basic pointer types!
 	let var n := 1;
 	let r:ptr<var i32> = &n;
 	let p:ptr<ptr<var i32>> = &r;
+	
+	defer printf("\n%d %d\n", *r, **p);
 	
 	// Basic type inferencing
 	let var m := 32;
@@ -37,8 +40,7 @@ main :: () -> i32
 	if (!b || !return_nil())
 	{
 		*r = 4 + 4;
-	}
-
-	printf("\n%d %d\n", *r, **p);
-	return 0;
+		return 0;
+	} 
+	return 1;
 }

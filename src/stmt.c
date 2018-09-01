@@ -42,7 +42,7 @@ void freeStmt(stmt_t *stmt)
 			} break;
 			case STMT_DEFER:
 			{
-				freeStmt(stmt->defer.stmt);
+				freeExpr(stmt->defer.expression);
 			} break;
 			case STMT_FUNCTION:
 			{

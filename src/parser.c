@@ -978,16 +978,17 @@ static stmt_t* parseReturnStatement(parser_t *parser)
 };
 static stmt_t* parseDeferStatement(parser_t *parser)
 {
-	stmt_t *deferred = parseStatement(parser);
-	if (!deferred)
+	expr_t *expr = parseExpression(parser);
+	if (!expr)
 	{
-		error(parser, peek(parser), "Expected deferred statement");
+		error(parser, peek(parser), "Expected deferred expression");
 		return NULL;
 	};
+	consume(parser, TOKEN_SEMICOLON, "Expected ';' after defer statement");
 
 	stmt_t *stmt = allocStmt();
 	stmt->type = STMT_DEFER;
-	stmt->defer.stmt = stmt;
+	stmt->defer.expression = expr;
 	return stmt;
 };
 static stmt_t* parseStatement(parser_t *parser)

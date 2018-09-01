@@ -77,7 +77,7 @@ struct stmt_s
 		} ret;
 		struct
 		{
-			stmt_t *stmt;
+			expr_t *expression;
 		} defer;
 		struct
 		{

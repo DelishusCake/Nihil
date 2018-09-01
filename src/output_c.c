@@ -1,5 +1,13 @@
 #include "output_c.h"
 
+#define DEFER_STACK_SIZE		32
+
+typedef struct 
+{
+	u32 used;
+	expr_t *expressions[DEFER_STACK_SIZE];
+} deferStack_t;
+
 static void indent(buffer_t *buffer, u32 count)
 {
 	for (u32 i = 0; i < count; i++)
@@ -190,7 +198,7 @@ static void output_expression(buffer_t *buffer, const expr_t *expr)
 				writeString(buffer, " const");
 		} break;
 
-		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
+		default: writeString(buffer, "/* ERROR NOT IMPLEMENTED */\n"); break;
 	};
 };
 static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
@@ -212,14 +220,14 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	}
 	writeString(buffer, ")");
 };
-static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
+static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t *deferStack, u32 index)
 {
-	indent(buffer, index);
 	switch(stmt->type)
 	{
 		case STMT_NONE: break;
 		case STMT_VAR:
 		{
+			indent(buffer, index);
 			output_expression(buffer, stmt->var.decl.type);
 			writeChar(buffer, ' ');
 			output_token(buffer, &stmt->var.decl.name);
@@ -232,67 +240,116 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		} break;
 		case STMT_EXPR:
 		{
+			indent(buffer, index);
 			output_expression(buffer, stmt->expression.expr);
 			writeString(buffer, ";\n");
 		} break;
 		case STMT_BLOCK:
 		{
+			indent(buffer, index);
 			writeString(buffer, "{\n");
 			for (u32 i = 0; i < stmt->block.statements.count; ++i)
 			{
-				output_statement(buffer, stmt->block.statements.data[i], index+1);
+				output_statement(buffer, stmt->block.statements.data[i], deferStack, index+1);
 			}
 			indent(buffer, index);
 			writeString(buffer, "}\n");
 		} break;
 		case STMT_IF:
 		{
+			indent(buffer, index);
 			writeString(buffer, "if (");
 			output_expression(buffer, stmt->conditional.condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, stmt->conditional.thenBranch, index);
+			output_statement(buffer, stmt->conditional.thenBranch, deferStack, index);
 			writeString(buffer, "\n");
 			if (stmt->conditional.elseBranch)
 			{
 				indent(buffer, index);
 				writeString(buffer, "else\n");
-				output_statement(buffer, stmt->conditional.elseBranch, index);
+				output_statement(buffer, stmt->conditional.elseBranch, deferStack, index);
 			};
 		} break;
 		case STMT_RETURN:
 		{
 			const expr_t *value = stmt->ret.value;
 
+			// Unwind stack
+			if (deferStack)
+			{
+				for (u32 i = deferStack->used; i > 0; i--)
+				{
+					indent(buffer, index);
+
+					const u32 n = i - 1;
+					const expr_t *expr = deferStack->expressions[n];
+					writeString(buffer, "{ ");
+					output_expression(buffer, expr);
+					writeString(buffer, "; }\n");
+				};
+			};
+			indent(buffer, index);
 			writeString(buffer, "return ");
 			output_expression(buffer, value);
 			writeString(buffer, ";\n");
 		} break;
+		case STMT_DEFER:
+		{
+			// Push the expression onto the defer stack
+			// TODO: Better error handling here
+			expr_t *expr = stmt->defer.expression;
+			if (deferStack)
+			{
+				if ((deferStack->used + 1) < DEFER_STACK_SIZE)
+				{
+					const u32 index = deferStack->used ++;
+					deferStack->expressions[index] = expr;
+				}else printf("ERROR: Cannot defer statment, too many defer statements pushed\n");
+			}else printf("ERROR: Cannot defer statment, defer statement not called in function\n");
+		} break;
 		case STMT_FUNCTION:
 		{
+			// How?
+			assert(deferStack == NULL);
+
 			const token_t *name = &stmt->function.decl.name;
 			const expr_t *type = stmt->function.decl.type;
 			const argList_t *arguments = &stmt->function.arguments;
 			const stmt_t *body = stmt->function.body;
+
+			indent(buffer, index);
 
 			output_expression(buffer, type);
 			writeString(buffer, " ");
 			output_token(buffer, name);
 			output_arg_list(buffer, arguments);
 			writeString(buffer, "\n");
-			output_statement(buffer, body, index);
+
+			// Allocate and use a new defer stack for the new function body
+			deferStack_t *stack = malloc(sizeof(deferStack_t));
+			assert(stack != NULL);
+			zeroMemory(stack, sizeof(deferStack_t));
+			output_statement(buffer, body, stack, index);
+			free(stack);
 		} break;
 		case STMT_WHILE:
 		{
 			const expr_t *condition = stmt->whileLoop.condition;
 			const stmt_t *body = stmt->whileLoop.body;
 
+			indent(buffer, index);
+
 			writeString(buffer, "while(");
 			output_expression(buffer, condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, body, index);
+			output_statement(buffer, body, deferStack, index);
 		} break;
 
-		default: writeString(buffer, "ERROR NOT IMPLEMENTED\n"); break;
+		default:
+		{
+			indent(buffer, index);
+			writeString(buffer, "/* ERROR NOT IMPLEMENTED */\n"); 
+		} break;
 	};
 };
 
@@ -341,7 +398,8 @@ static void output_all_statements(buffer_t *buffer, const parser_t *parser)
 	for (u32 i = 0; i < statements->count; i++)
 	{
 		const stmt_t *stmt = statements->data[i];
-		output_statement(buffer, stmt, 0);
+		// By default, statements have no defer stack
+		output_statement(buffer, stmt, NULL, 0);
 	};
 };
 
