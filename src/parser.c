@@ -118,7 +118,7 @@ static expr_t* parseBuiltinType(parser_t *parser, typeFlags_t flags)
 				flags &= ~TYPE_FLAG_CONST;
 			};
 
-			expr_t *expr = allocExpression();
+			expr_t *expr = allocExpr();
 			expr->type = EXPR_BUILTIN;
 			expr->builtin.value = value;
 			expr->builtin.flags = flags;
@@ -141,7 +141,7 @@ static expr_t* parsePtrType(parser_t *parser, typeFlags_t flags)
 
 	consume(parser, TOKEN_GREATER, "Expected closing '>' for pointer expression");
 
-	expr_t *expr = allocExpression();
+	expr_t *expr = allocExpr();
 	expr->type = EXPR_PTR;
 	expr->ptr.to = to;
 	expr->ptr.flags = flags;
@@ -176,7 +176,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t value = peekPrev(parser);
 
-			expr_t *lit = allocExpression();
+			expr_t *lit = allocExpr();
 			lit->type = EXPR_LITERAL;
 			lit->literal.value = value;
 			return lit;
@@ -189,7 +189,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 		{
 			token_t name = peekPrev(parser);
 
-			expr_t *lit = allocExpression();
+			expr_t *lit = allocExpr();
 			lit->type = EXPR_VARIABLE;
 			lit->variable.name = name;
 			return lit;
@@ -212,7 +212,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 					return NULL;
 				}
 
-				expr_t *cast = allocExpression();
+				expr_t *cast = allocExpr();
 				cast->type = EXPR_CAST;
 				cast->cast.type = typeExpr;
 				cast->cast.expression = expr;
@@ -227,7 +227,7 @@ static expr_t* parsePrimaryExpression(parser_t *parser)
 
 				consume(parser, TOKEN_CLOSE_PAREN, "Expected ')' to close expression");
 				
-				expr_t *group = allocExpression();
+				expr_t *group = allocExpr();
 				group->type = EXPR_GROUP;
 				group->group.expression = expr;
 				return group;
@@ -247,7 +247,7 @@ static expr_t* parseCallExpression(parser_t *parser)
 			if (match(parser, open_types, static_len(open_types)))
 			{
 				// Allocate a new call expression
-				expr_t *call_expr = allocExpression();
+				expr_t *call_expr = allocExpr();
 				call_expr->type = EXPR_CALL;
 				call_expr->call.callee = expr;
 				// Push arguments to the args list
@@ -294,7 +294,7 @@ static expr_t* parsePostUnaryExpression(parser_t *parser)
 		{
 			token_t operator = peekPrev(parser);
 
-			expr_t *un = allocExpression();
+			expr_t *un = allocExpr();
 			un->type = EXPR_POST_UNARY;
 			un->post_unary.operator = operator;
 			un->post_unary.left = expr;
@@ -324,7 +324,7 @@ static expr_t* parsePreUnaryExpression(parser_t *parser)
 			return NULL;
 		}
 
-		expr_t *un = allocExpression();
+		expr_t *un = allocExpr();
 		un->type = EXPR_PRE_UNARY;
 		un->pre_unary.operator = operator;
 		un->pre_unary.right = right;
@@ -349,7 +349,7 @@ static expr_t* parseMultiplicationExpression(parser_t *parser)
 				return NULL;
 			}
 
-			expr_t *mult = allocExpression();
+			expr_t *mult = allocExpr();
 			mult->type = EXPR_BINARY;
 			mult->binary.left = expr;
 			mult->binary.operator = operator;
@@ -377,7 +377,7 @@ static expr_t* parseAdditionExpression(parser_t *parser)
 				return NULL;
 			}
 
-			expr_t *add = allocExpression();
+			expr_t *add = allocExpr();
 			add->type = EXPR_BINARY;
 			add->binary.left = expr;
 			add->binary.operator = operator;
@@ -409,7 +409,7 @@ static expr_t* parseComparisonExpression(parser_t *parser)
 				return NULL;
 			}
 
-			expr_t *comp = allocExpression();
+			expr_t *comp = allocExpr();
 			comp->type = EXPR_BINARY;
 			comp->binary.left = expr;	
 			comp->binary.operator = operator;	
@@ -437,7 +437,7 @@ static expr_t* parseEqualityExpression(parser_t *parser)
 				return NULL;
 			}
 			
-			expr_t *eq = allocExpression();
+			expr_t *eq = allocExpr();
 			eq->type = EXPR_BINARY;
 			eq->binary.left = expr;
 			eq->binary.operator = operator;
@@ -464,7 +464,7 @@ static expr_t* parseLogicalAndExpression(parser_t *parser)
 				return NULL;
 			}
 
-			expr_t *andExp = allocExpression();
+			expr_t *andExp = allocExpr();
 			andExp->type = EXPR_BINARY;
 			andExp->binary.operator = operator;
 			andExp->binary.left = expr;
@@ -490,7 +490,7 @@ static expr_t* parseLogicalOrExpression(parser_t *parser)
 				return NULL;
 			}
 
-			expr_t *orExp = allocExpression();
+			expr_t *orExp = allocExpr();
 			orExp->type = EXPR_BINARY;
 			orExp->binary.operator = operator;
 			orExp->binary.left = expr;
@@ -521,7 +521,7 @@ static expr_t* parseAssignmentExpression(parser_t *parser)
 			}
 
 			// TODO: Check and make sure that the target is valid
-			expr_t *new_expr = allocExpression();
+			expr_t *new_expr = allocExpr();
 			new_expr->type = EXPR_ASSIGNMENT;
 			new_expr->assignment.operator = operator;
 			new_expr->assignment.target = expr;
@@ -691,7 +691,7 @@ static stmt_t* parseFunctionDeclaration(parser_t *parser, token_t name)
 		token_t voidTok = {};
 		voidTok.type = TOKEN_VOID;
 
-		type = allocExpression();
+		type = allocExpr();
 		type->type = EXPR_BUILTIN;
 		type->builtin.flags = (TYPE_FLAG_RETURN);
 		type->builtin.value = voidTok;
@@ -835,14 +835,14 @@ static stmt_t* parseForStatement(parser_t *parser)
 	// De-sugarization
 	{
 		//Create the increment statement
-		expr_t *var = allocExpression();
+		expr_t *var = allocExpr();
 		var->type = EXPR_VARIABLE;
 		var->variable.name = name;
 
 		token_t operator = {};
 		operator.type = TOKEN_PLUS_PLUS;
 		
-		expr_t *increment = allocExpression();
+		expr_t *increment = allocExpr();
 		increment->type = EXPR_POST_UNARY;
 		increment->post_unary.operator = operator;
 		increment->post_unary.left = var;
@@ -863,14 +863,14 @@ static stmt_t* parseForStatement(parser_t *parser)
 	};
 	// Add the condition
 	{
-		expr_t *var = allocExpression();
+		expr_t *var = allocExpr();
 		var->type = EXPR_VARIABLE;
 		var->variable.name = name;
 
 		token_t operator = {};
 		operator.type = closeIsInclusive ? TOKEN_LESS_EQUAL : TOKEN_LESS;
 
-		expr_t *condition = allocExpression();
+		expr_t *condition = allocExpr();
 		condition->type = EXPR_BINARY;
 		condition->binary.operator = operator;
 		condition->binary.left = var;

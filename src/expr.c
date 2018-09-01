@@ -1,6 +1,6 @@
 #include "expr.h"
 
-expr_t* allocExpression()
+expr_t* allocExpr()
 {
 	expr_t *expr = (expr_t*) malloc(sizeof(expr_t));
 	assert (expr);
@@ -58,6 +58,18 @@ void freeExpr(expr_t *expr)
 	}
 };
 
+// Clone an expression into a newly allocated expression
+static expr_t* cloneExpr(const expr_t *old)
+{
+	expr_t *new = NULL;
+	if (old != NULL)
+	{
+		new = allocExpr();
+		copyMemory(new, old, sizeof(expr_t));
+	}
+	return new;
+};
+
 static void indent(u32 index)
 {
 	for (u32 i = 0; i < index; i++)
@@ -98,6 +110,11 @@ static void printBuiltin(const token_t *token)
 void printExpr(expr_t *expr, u32 index)
 {
 	indent(index);
+	if (!expr)
+	{
+		printf("NULL expr\n");
+		return;
+	}
 	switch(expr->type)
 	{
 		case EXPR_CALL:
@@ -143,7 +160,7 @@ void printExpr(expr_t *expr, u32 index)
 		case EXPR_PTR:
 		{
 			printf("EXPR_PTR\n");
-
+			printExpr(expr->ptr.to, index+1);
 		} break;
 		case EXPR_BUILTIN:
 		{
@@ -161,15 +178,18 @@ void pushExpr(exprList_t *expressions, expr_t *expr)
 {
 	if (!expressions->size)
 	{
+		// Alloc a default array of 16
 		expressions->count = 0;
 		expressions->size = 16;
 		expressions->data = malloc(expressions->size*sizeof(expr_t*));
 		assert (expressions->data);
 	} else if ((expressions->count + 1) >= expressions->size) {
+		// Realloc with double the size
 		expressions->size <<= 1;
 		expressions->data = realloc(expressions->data, expressions->size*sizeof(expr_t*));
 		assert (expressions->data);
 	};
+	// Insert the item to the end of the list
 	const u32 index = expressions->count ++;
 	expressions->data[index] = expr;
 };
@@ -197,6 +217,25 @@ bool typeExpressionsMatch(expr_t *a, expr_t *b)
 	return true;
 }
 
+static tokenType_t tokenToBuiltin(const tokenType_t type)
+{
+	switch (type)
+	{
+		// Booleans default to bool
+		case TOKEN_TRUE:
+		case TOKEN_FALSE:
+			return TOKEN_BOOL;
+		// Integers to int32_t
+		case TOKEN_INTEGER:
+			return TOKEN_I32;
+		// Floats to float
+		case TOKEN_FLOAT:
+			return TOKEN_F32;
+		// Everything else not implemented (or not valid)
+		default: break;
+	};
+	return TOKEN_EOF;
+};
 static expr_t* evaluateTypeOfLiteral(const expr_t *expr, typeFlags_t flags)
 {
 	// Get the literal token and it's token type
@@ -216,36 +255,64 @@ static expr_t* evaluateTypeOfLiteral(const expr_t *expr, typeFlags_t flags)
 	}
 	
 	// Token type -> builtin type
-	tokenType_t type;
-	switch (expr->literal.value.type)
+	tokenType_t type = tokenToBuiltin(expr->literal.value.type);
+	if (type == TOKEN_EOF)
 	{
-		case TOKEN_TRUE:
-		case TOKEN_FALSE:
-		{
-			type = TOKEN_BOOL;
-		} break;
-		case TOKEN_INTEGER:
-		{
-			type = TOKEN_I32;
-		} break;
-		case TOKEN_FLOAT:
-		{
-			type = TOKEN_F32;
-		} break;
-		default:
-		{
-			printf("Primary type not implemented\n");
-		} return NULL;
-	};
+		printf("Primary type not implemented\n");
+		return NULL;
+	}
 
 	token_t value = {};
 	value.type = type;
 
-	expr_t *typeExpr = allocExpression();
+	expr_t *typeExpr = allocExpr();
 	typeExpr->type = EXPR_BUILTIN;
 	typeExpr->builtin.flags = (flags | TYPE_FLAG_BASIC);
 	typeExpr->builtin.value = value;
 	return typeExpr;
+};
+static expr_t* evaluateBinaryExprType(expr_t *expr, typeFlags_t flags)
+{
+	// Get the type expressions for the left and right parts of the expression
+	expr_t *leftType = evaluateExprType(expr->binary.left, flags);
+	expr_t *rightType = evaluateExprType(expr->binary.right, flags);
+	// Check that they match
+	if (!typeExpressionsMatch(leftType, rightType))
+	{
+		printf("Sides of binary expression do not match\n");
+		return NULL;
+	};
+	// Return either or, they're the same so it doesn't matter
+	return leftType;
+};
+static expr_t* evaluatePreUnaryExpr(expr_t *expr, typeFlags_t flags)
+{
+	const tokenType_t operator = expr->pre_unary.operator.type;
+	expr_t *right = expr->pre_unary.right;
+
+	switch (operator)
+	{
+		// Reference operator
+		case TOKEN_AND:
+		{
+			expr_t *to = evaluateExprType(right, flags);
+			if (!to)
+			{
+				return NULL;
+			}
+
+			expr_t *typeExpr = allocExpr();
+			typeExpr->type = EXPR_PTR;
+			typeExpr->ptr.flags = 0;
+			typeExpr->ptr.to = to;
+			return typeExpr;
+		} break;
+		default:
+		{
+			printf("Pre unary type not implemented\n");
+		} break;
+	};
+	return NULL;
 };
 expr_t* evaluateExprType(expr_t *expr, typeFlags_t flags)
 {
@@ -256,28 +323,14 @@ expr_t* evaluateExprType(expr_t *expr, typeFlags_t flags)
 			return evaluateExprType(expr->group.expression, flags);
 		case EXPR_LITERAL:
 			return evaluateTypeOfLiteral(expr, flags);
-
 		case EXPR_CAST:
 			// Just return the cast type
 			// TODO: Make sure to handle const flags
 			return expr->cast.type;
-
 		case EXPR_BINARY:
-		{
-			// Get the type expressions for the left and right parts of the expression
-			expr_t *leftType = evaluateExprType(expr->binary.left, flags);
-			expr_t *rightType = evaluateExprType(expr->binary.right, flags);
-			// Check that they match
-			if (!typeExpressionsMatch(leftType, rightType))
-			{
-				printf("Sides of binary expression do not match\n");
-				return NULL;
-			};
-			// Return either or, they're the same so it doesn't matter
-			return leftType;
-		} break;
-
+			return evaluateBinaryExprType(expr, flags);
 		case EXPR_PRE_UNARY:
+			return evaluatePreUnaryExpr(expr, flags);
 		case EXPR_POST_UNARY:
 		{
 			printf("Pre- and Post-Unary types not implemented\n");

@@ -106,7 +106,7 @@ struct expr_s
 };
 
 // Expression memory management functions
-expr_t* allocExpression();
+expr_t* allocExpr();
 void freeExpr(expr_t *expr);
 
 #if DEBUG
