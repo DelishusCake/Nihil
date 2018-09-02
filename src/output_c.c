@@ -212,26 +212,7 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	}
 	writeString(buffer, ")");
 };
-
-#define DEFER_STACK_SIZE		32
-
-typedef struct 
-{
-	u32 used;
-	expr_t *expressions[DEFER_STACK_SIZE];
-} deferStack_t;
-
-static bool pushDeferedExr(deferStack_t *stack, expr_t *expr)
-{
-	if ((stack->used + 1) < DEFER_STACK_SIZE)
-	{
-		const u32 index = stack->used ++;
-		stack->expressions[index] = expr;
-		return true;
-	}
-	return false;
-};
-static void unwindDeferedStack(buffer_t *buffer, const deferStack_t *stack, u32 index)
+static void output_defered_stack(buffer_t *buffer, const deferStack_t *stack, u32 index)
 {
 	for (u32 i = stack->used; i > 0; i--)
 	{
@@ -309,7 +290,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 				printf("ERROR: Cannot parse defered statements, return not called in function\n");
 				break;	
 			};
-			unwindDeferedStack(buffer, deferStack, index);
+			output_defered_stack(buffer, deferStack, index);
 
 			indent(buffer, index);
 			writeString(buffer, "return ");
@@ -326,11 +307,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 				printf("ERROR: Cannot defer statment, defer statement not called in function\n");
 				break;
 			}
-			if (!pushDeferedExr(deferStack, expr))
-			{
-				printf("ERROR: Cannot defer statment, too many defer statements pushed\n");
-				break;
-			}
+			pushDeferedExpr(deferStack, expr);
 		} break;
 		case STMT_FUNCTION:
 		{
@@ -351,24 +328,23 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 			writeString(buffer, "\n");
 
 			// Allocate and use a new defer stack for the new function body
-			deferStack_t *stack = malloc(sizeof(deferStack_t));
-			assert(stack != NULL);
-			zeroMemory(stack, sizeof(deferStack_t));
+			deferStack_t stack;
+			initDeferStack(&stack);
 			{	
 				indent(buffer, index);
 				writeString(buffer, "{\n");
 				// We need to output the block this way so we can unwind the defered stack without losing scope
-				output_block(buffer, body, stack, index);
+				output_block(buffer, body, &stack, index);
 				// If the last statement was a return, the function can never get here and the defered stack has been unwound anyway
 				const stmt_t *last = body->block.statements.data[body->block.statements.count-1];
 				if (last->type != STMT_RETURN)
 				{
-					unwindDeferedStack(buffer, stack, index+1);
+					output_defered_stack(buffer, &stack, index+1);
 				}
 				indent(buffer, index);
 				writeString(buffer, "}\n");
 			}
-			free(stack);
+			freeDeferStack(&stack);
 		} break;
 		case STMT_WHILE:
 		{

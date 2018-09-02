@@ -5,6 +5,8 @@
 #include "util.h"
 
 #include "buffer.h"
+
+#include "scope.h"
 #include "parser.h"
 
 void output_c(const parser_t *parser, const char *filename);

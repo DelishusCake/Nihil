@@ -152,3 +152,26 @@ expr_t* getVarType(scopeStack_t *stack, token_t name)
 	// Not found
 	return NULL;
 }
+
+void initDeferStack(deferStack_t *stack)
+{
+	stack->used = 0;
+	stack->size = 1;
+	stack->expressions = malloc(stack->size*sizeof(expr_t*));
+};
+void freeDeferStack(deferStack_t *stack)
+{
+	free(stack->expressions);
+};
+
+void pushDeferedExpr(deferStack_t *stack, expr_t *expr)
+{
+	if ((stack->used+1) >= stack->size)
+	{
+		stack->size <<= 1;
+		stack->expressions = realloc(stack->expressions, stack->size*sizeof(expr_t*));
+	};
+
+	const u32 index = stack->used ++;
+	stack->expressions[index] = expr;
+};

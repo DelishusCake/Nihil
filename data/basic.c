@@ -7,26 +7,12 @@
 #include <float.h>
 /* Function prototypes */
 void * return_nil(void);
-void do_print(uint32_t const lim);
 int32_t main(void);
+void do_print(uint32_t const lim);
 /* Code */
 void * return_nil(void)
 {
 	return NULL;
-}
-void do_print(uint32_t const lim)
-{
-	{
-		uint32_t i = 0;
-		while(i<=lim)
-		{
-			{
-				printf("%d ", i);
-			}
-			i++;
-		}
-	}
-	printf("\n");
 }
 int32_t main(void)
 {
@@ -47,4 +33,18 @@ int32_t main(void)
 	printf("\n%d %d\n", *r, **p);
 	printf("Hi!\n");
 	return 1;
+}
+void do_print(uint32_t const lim)
+{
+	{
+		uint32_t i = 0;
+		while(i<=lim)
+		{
+			{
+				printf("%d ", i);
+			}
+			i++;
+		}
+	}
+	printf("\n");
 }

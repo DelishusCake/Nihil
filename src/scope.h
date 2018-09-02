@@ -32,4 +32,17 @@ Returns the topmost found entry's type, searching down the stack until an entry 
 */
 expr_t* getVarType(scopeStack_t *stack, token_t name);
 
+// A stack of defered expressions
+typedef struct 
+{
+	u32 used;
+	u32 size;
+	expr_t **expressions;
+} deferStack_t;
+// Memory management
+void initDeferStack(deferStack_t *stack);
+void freeDeferStack(deferStack_t *stack);
+// Push a defered expression
+void pushDeferedExpr(deferStack_t *stack, expr_t *expr);
+
 #endif

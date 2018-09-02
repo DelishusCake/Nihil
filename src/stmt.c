@@ -72,6 +72,24 @@ void pushStmt(stmtList_t *statements, stmt_t *stmt)
 	const u32 index = statements->count ++;
 	statements->data[index] = stmt;
 };
+stmt_t* removeStmt(stmtList_t *statements, u32 index)
+{
+	stmt_t *stmt = NULL;
+	if (index >= 0 || index < statements->count)
+	{
+		stmt = statements->data[index];
+
+		statements->count --;
+		if (index != statements->count)
+		{
+			for (u32 i = index; i < statements->count; i++)
+			{
+				statements->data[i] = statements->data[i+1];
+			};
+		}
+	}
+	return stmt;
+};
 void freeStmtList(stmtList_t *statements)
 {
 	if (statements->data)

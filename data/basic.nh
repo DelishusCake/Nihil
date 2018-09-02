@@ -6,20 +6,9 @@ return_nil :: () -> ptr<var void>
 {
 	return nil;
 }
-
-do_print :: (lim:u32)
-{
-	// Non-inclusive:
-	// for (i:u32 in [0, lim))
-	for (i:u32 in [0, lim])
-	{
-		printf("%d ", i);
-	}
-	printf("\n");
-}
-
 main :: () -> i32
 {
+	// You can call functions before you define them
 	do_print(100);
 
 	// Defered expressions!
@@ -43,4 +32,15 @@ main :: () -> i32
 		return 0;
 	} 
 	return 1;
+}
+
+do_print :: (lim:u32)
+{
+	// Non-inclusive:
+	// for (i:u32 in [0, lim))
+	for (i:u32 in [0, lim])
+	{
+		printf("%d ", i);
+	}
+	printf("\n");
 }
