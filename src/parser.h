@@ -9,6 +9,8 @@
 #include "expr.h"
 #include "stmt.h"
 
+#include "validate.h"
+
 // Maximum number of arguments that can be passed to a single function call 
 #define MAX_ARGUMENTS		64
 

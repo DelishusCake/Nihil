@@ -578,6 +578,11 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 				{
 					// Get the type
 					type = parseType(parser, typeFlags);
+					if (!type)
+					{
+						error(parser, peekPrev(parser), "Expected type for explicit declaration");
+						return NULL;
+					}
 
 					// If there is an equal sign after the type
 					const tokenType_t type_equal_types[] = { TOKEN_EQUAL };
@@ -590,17 +595,6 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 							error(parser, peekPrev(parser), "Expected initializer");
 							return NULL;
 						};
-
-						// TODO: Check for initializer type
-						#if 0
-						expr_t *typeOfInitializer = evaluateExprType(initializer);
-						if (typeOfInitializer != NULL)
-						{
-							printf("Type for: %.*s\n", name.len, name.start);
-							printExpr(typeOfInitializer, 0);
-							freeExpr(typeOfInitializer);
-						}
-						#endif
 					} else {
 						// If the type is supposed to be constant, throw an error if there's no initializer
 						if (typeFlags & TYPE_FLAG_CONST) 
@@ -621,6 +615,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 						return NULL;
 					};
 					
+					#if 0
 					type = evaluateExprType(initializer, typeFlags);
 					if (!type)
 					{
@@ -630,6 +625,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 					#if DEBUG
 					printf("Type for: %.*s\n", name.len, name.start);
 					printExpr(type, 0);
+					#endif
 					#endif
 				} break;
 				// It can only be : or :=, just shut up gcc
@@ -644,6 +640,7 @@ static stmt_t* parseVariableDeclaration(parser_t *parser)
 	stmt->type = STMT_VAR;
 	stmt->var.decl.name = name;
 	stmt->var.decl.type = type;
+	stmt->var.decl.flags = typeFlags;
 	stmt->var.initializer = initializer;
 	return stmt;
 };
@@ -1061,6 +1058,13 @@ parserError_t parse(parser_t *parser, const char *code, const arrayOf(token_t) *
 		if (isAtEnd(parser) || (parser->error != PARSER_NO_ERROR))
 		{
 			break;
+		}
+	}
+	if (parser->error == PARSER_NO_ERROR)
+	{
+		if(!validate(&parser->statements))
+		{
+			parser->error = PARSER_ERROR;
 		}
 	}
 	return parser->error;

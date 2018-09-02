@@ -20,6 +20,7 @@ typedef struct
 {
 	token_t name;
 	expr_t *type;
+	typeFlags_t flags;
 } varDecl_t;
 typedef struct
 {
