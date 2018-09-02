@@ -1,7 +1,7 @@
 #include "tests.h"
 
 #define MUNIT_ENABLE_ASSERT_ALIASES
-#include "munit.h"
+#include <munit.h>
 
 #include "core.h"
 #include "util.h"

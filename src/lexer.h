@@ -1,10 +1,10 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <murmur3.h>
+
 #include "core.h"
 #include "util.h"
-
-#include "murmur3.h"
 
 typedef enum
 {
