@@ -47,8 +47,10 @@ typedef enum
 typedef struct
 {
 	tokenType_t type;	// Token type
+
 	const char *start;	// The pointer into the code string of the token
 	size_t len;			// Length for the token string
+	
 	size_t line;		// The line of code this token exists on
 	size_t line_offset;	// The offset into the line this token is on
 } token_t;
