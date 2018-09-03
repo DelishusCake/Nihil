@@ -56,7 +56,7 @@ void freeStmt(stmt_t *stmt)
 	} 
 };
 
-void pushStmt(stmtList_t *statements, stmt_t *stmt)
+static void growStmtList(stmtList_t *statements)
 {
 	if (!statements->size)
 	{
@@ -69,26 +69,47 @@ void pushStmt(stmtList_t *statements, stmt_t *stmt)
 		statements->data = realloc(statements->data, statements->size*sizeof(stmt_t*));
 		assert (statements->data);
 	};
+}
+void pushStmt(stmtList_t *statements, stmt_t *stmt)
+{
+	growStmtList(statements);
+
 	const u32 index = statements->count ++;
 	statements->data[index] = stmt;
 };
 stmt_t* removeStmt(stmtList_t *statements, u32 index)
 {
 	stmt_t *stmt = NULL;
-	if (index >= 0 || index < statements->count)
+	if ((index >= 0) && (index < statements->count))
 	{
 		stmt = statements->data[index];
 
 		statements->count --;
-		if (index != statements->count)
+		for (u32 i = index; i < statements->count; i++)
 		{
-			for (u32 i = index; i < statements->count; i++)
-			{
-				statements->data[i] = statements->data[i+1];
-			};
-		}
+			statements->data[i] = statements->data[i+1];
+		};
 	}
 	return stmt;
+};
+void insertStmtAt(stmtList_t *statements, stmt_t *stmt, u32 index)
+{
+	if ((index >= 0) && (index < statements->count))
+	{
+		if ((index == (statements->count-1)) || (index == 0))
+		{
+			pushStmt(statements, stmt);
+		} else {
+			growStmtList(statements);
+
+			for (u32 i = statements->count; i > index; i--)
+			{
+				statements->data[i] = statements->data[i-1];
+			}
+			statements->data[index] = stmt;
+			statements->count ++;
+		}
+	};
 };
 void freeStmtList(stmtList_t *statements)
 {

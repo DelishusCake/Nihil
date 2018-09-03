@@ -42,6 +42,7 @@ typedef struct
 // Memory management
 void initDeferStack(deferStack_t *stack);
 void freeDeferStack(deferStack_t *stack);
+void resetDeferStack(deferStack_t *stack);
 // Push a defered expression
 void pushDeferedExpr(deferStack_t *stack, expr_t *expr);
 

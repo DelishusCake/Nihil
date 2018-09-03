@@ -2,15 +2,11 @@
 A basic syntax example for testing and whatnot.
 See basic.c for the output from this file
 */
-return_nil :: () -> ptr<var void>
-{
-	return nil;
-}
 main :: () -> i32
 {
 	// You can call functions before you define them
 	do_print(100);
-
+	
 	// Defered expressions!
 	defer printf("Hi!\n");
 
@@ -36,11 +32,16 @@ main :: () -> i32
 
 do_print :: (lim:u32)
 {
+	defer printf("\n");
 	// Non-inclusive:
 	// for (i:u32 in [0, lim))
 	for (i:u32 in [0, lim])
 	{
 		printf("%d ", i);
 	}
-	printf("\n");
+}
+
+return_nil :: () -> ptr<var void>
+{
+	return nil;
 }

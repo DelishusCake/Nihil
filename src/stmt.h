@@ -92,8 +92,10 @@ struct stmt_s
 stmt_t* allocStmt();
 void freeStmt(stmt_t *stmt);
 
+
 void pushStmt(stmtList_t *statements, stmt_t *stmt);
 stmt_t* removeStmt(stmtList_t *statements, u32 index);
+void insertStmtAt(stmtList_t *statements, stmt_t *stmt, u32 index);
 void freeStmtList(stmtList_t *statements);
 
 varDecl_t* pushVarDecl(argList_t *arguments);

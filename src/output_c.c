@@ -83,6 +83,7 @@ static void output_token(buffer_t *buffer, const token_t *token)
 };
 static void output_expression(buffer_t *buffer, const expr_t *expr)
 {
+	assert(expr);
 	switch(expr->type)
 	{
 		// C output: <value>
@@ -212,30 +213,19 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	}
 	writeString(buffer, ")");
 };
-static void output_defered_stack(buffer_t *buffer, const deferStack_t *stack, u32 index)
-{
-	for (u32 i = stack->used; i > 0; i--)
-	{
-		indent(buffer, index);
 
-		const u32 n = i - 1;
-		const expr_t *expr = stack->expressions[n];
-		output_expression(buffer, expr);
-		writeString(buffer, ";\n");
-	};
-}
-
-static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t *deferStack, u32 index);
-static void output_block(buffer_t *buffer, const stmt_t *stmt, deferStack_t *deferStack, u32 index)
+static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index);
+static void output_block(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
 	const stmtList_t *stmts = &stmt->block.statements;
 	for (u32 i = 0; i < stmts->count; ++i)
 	{
-		output_statement(buffer, stmts->data[i], deferStack, index+1);
+		output_statement(buffer, stmts->data[i], index+1);
 	}
 }
-static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t *deferStack, u32 index)
+static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
+	assert(stmt);
 	switch(stmt->type)
 	{
 		case STMT_NONE: break;
@@ -262,7 +252,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 		{
 			indent(buffer, index);
 			writeString(buffer, "{\n");
-			output_block(buffer, stmt, deferStack, index);
+			output_block(buffer, stmt, index);
 			indent(buffer, index);
 			writeString(buffer, "}\n");
 		} break;
@@ -272,48 +262,29 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 			writeString(buffer, "if (");
 			output_expression(buffer, stmt->conditional.condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, stmt->conditional.thenBranch, deferStack, index);
+			output_statement(buffer, stmt->conditional.thenBranch, index);
 			if (stmt->conditional.elseBranch)
 			{
 				indent(buffer, index);
 				writeString(buffer, "else\n");
-				output_statement(buffer, stmt->conditional.elseBranch, deferStack, index);
+				output_statement(buffer, stmt->conditional.elseBranch, index);
 			}
 		} break;
 		case STMT_RETURN:
 		{
 			const expr_t *value = stmt->ret.value;
 
-			// Unwind stack
-			if (!deferStack)
-			{
-				printf("ERROR: Cannot parse defered statements, return not called in function\n");
-				break;	
-			};
-			output_defered_stack(buffer, deferStack, index);
-
 			indent(buffer, index);
 			writeString(buffer, "return ");
-			output_expression(buffer, value);
+			if (value)
+			{
+				output_expression(buffer, value);
+			}
 			writeString(buffer, ";\n");
 		} break;
-		case STMT_DEFER:
-		{
-			// Push the expression onto the defer stack
-			// TODO: Better error handling here
-			expr_t *expr = stmt->defer.expression;
-			if (!deferStack)
-			{
-				printf("ERROR: Cannot defer statment, defer statement not called in function\n");
-				break;
-			}
-			pushDeferedExpr(deferStack, expr);
-		} break;
+		case STMT_DEFER: break;
 		case STMT_FUNCTION:
 		{
-			// How?
-			assert(deferStack == NULL);
-
 			const token_t *name = &stmt->function.decl.name;
 			const expr_t *type = stmt->function.decl.type;
 			const argList_t *arguments = &stmt->function.arguments;
@@ -327,24 +298,13 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 			output_arg_list(buffer, arguments);
 			writeString(buffer, "\n");
 
-			// Allocate and use a new defer stack for the new function body
-			deferStack_t stack;
-			initDeferStack(&stack);
 			{	
 				indent(buffer, index);
 				writeString(buffer, "{\n");
-				// We need to output the block this way so we can unwind the defered stack without losing scope
-				output_block(buffer, body, &stack, index);
-				// If the last statement was a return, the function can never get here and the defered stack has been unwound anyway
-				const stmt_t *last = body->block.statements.data[body->block.statements.count-1];
-				if (last->type != STMT_RETURN)
-				{
-					output_defered_stack(buffer, &stack, index+1);
-				}
+				output_block(buffer, body, index);
 				indent(buffer, index);
 				writeString(buffer, "}\n");
 			}
-			freeDeferStack(&stack);
 		} break;
 		case STMT_WHILE:
 		{
@@ -356,7 +316,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, deferStack_t 
 			writeString(buffer, "while(");
 			output_expression(buffer, condition);
 			writeString(buffer, ")\n");
-			output_statement(buffer, body, deferStack, index);
+			output_statement(buffer, body, index);
 		} break;
 
 		default:
@@ -413,7 +373,7 @@ static void output_all_statements(buffer_t *buffer, const parser_t *parser)
 	{
 		const stmt_t *stmt = statements->data[i];
 		// By default, statements have no defer stack
-		output_statement(buffer, stmt, NULL, 0);
+		output_statement(buffer, stmt, 0);
 	};
 };
 

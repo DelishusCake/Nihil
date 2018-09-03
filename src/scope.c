@@ -163,6 +163,10 @@ void freeDeferStack(deferStack_t *stack)
 {
 	free(stack->expressions);
 };
+void resetDeferStack(deferStack_t *stack)
+{
+	stack->used = 0;
+}
 
 void pushDeferedExpr(deferStack_t *stack, expr_t *expr)
 {

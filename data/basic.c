@@ -6,14 +6,10 @@
 #include <stdbool.h>
 #include <float.h>
 /* Function prototypes */
-void * return_nil(void);
 int32_t main(void);
 void do_print(uint32_t const lim);
+void * return_nil(void);
 /* Code */
-void * return_nil(void)
-{
-	return NULL;
-}
 int32_t main(void)
 {
 	do_print(100);
@@ -47,4 +43,7 @@ void do_print(uint32_t const lim)
 		}
 	}
 	printf("\n");
+}
+void * return_nil(void)
+{
 }
