@@ -16,37 +16,9 @@ static stmt_t* next(itr_t *itr)
 	}
 	return stmt;
 };
-static stmt_t* current(itr_t *itr)
-{
-	return itr->stmts->data[itr->next-1];
-};
-static stmt_t* removeCurrent(itr_t *itr)
-{
-	if (itr->next != 0)
-	{
-		// Remove and get the current statement
-		stmt_t *stmt = removeStmt(itr->stmts, itr->next-1);
-		// Move the iterator back so we dont skip the next statement
-		itr->next --;
-		return stmt;
-	}
-	return NULL;
-};
-static void insertStmtAtCurrent(itr_t *itr, stmt_t *stmt)
-{
-	// Insert the statement at the current index
-	if (itr->next == 0)
-	{
-		insertStmtAt(itr->stmts, stmt, itr->next-1);	
-	} else {
-		pushStmt(itr->stmts, stmt);
-	}
-	itr->next ++;
-};
 
-static void unwindDeferStack(deferStack_t *defer, itr_t *itr)
+static void unwindDefered(deferStack_t *defer, itr_t *itr)
 {
-	// Pop off all the expressions and push them as statements
 	for (u32 i = defer->used; i > 0; i--)
 	{
 		expr_t *expr = defer->expressions[i-1];
@@ -54,9 +26,10 @@ static void unwindDeferStack(deferStack_t *defer, itr_t *itr)
 		stmt_t *stmt = allocStmt();
 		stmt->type = STMT_EXPR;
 		stmt->expression.expr = expr;
-		insertStmtAtCurrent(itr, stmt);
+		insertStmtAt(itr->stmts, stmt, itr->next-1);
+		itr->next ++;
 	};
-};
+}
 
 static void error(const token_t *token, const char *msg)
 {
@@ -81,10 +54,11 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer)
 				if (!validateStmt(&new_itr, stmt, defer))
 					return false;
 			};
-			stmt_t *last = current(&new_itr);
+			stmt_t *last = new_itr.stmts->data[new_itr.next-1];
 			if (last->type != STMT_RETURN)
 			{
-				unwindDeferStack(defer, &new_itr);
+				new_itr.next ++;
+				unwindDefered(defer, &new_itr);
 			}
 			resetDeferStack(defer);
 		} break;
@@ -109,17 +83,17 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer)
 			// Push the expression to the defered stack
 			expr_t *expr = stmt->defer.expression;
 			pushDeferedExpr(defer, expr);
-			// Set the expression to NULL so it doesn't get freed with the statement
-			stmt->defer.expression = NULL;
-			// Remove and free the statement
-			removeCurrent(itr);
+			
+			removeStmt(itr->stmts, itr->next-1);
+			itr->next --;
 		} break;
 		case STMT_RETURN:
 		{
-			stmt_t *ret = removeCurrent(itr);
-			// Push the defered statements, but don't reset the stack
-			unwindDeferStack(defer, itr);
-			insertStmtAtCurrent(itr, ret);
+			stmt_t *stmt = removeStmt(itr->stmts, itr->next-1);
+
+			unwindDefered(defer, itr);
+
+			insertStmtAt(itr->stmts, stmt, itr->next-1);
 		} break;
 		case STMT_VAR:
 		{

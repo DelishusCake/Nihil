@@ -46,4 +46,5 @@ void do_print(uint32_t const lim)
 }
 void * return_nil(void)
 {
+	return NULL;
 }
