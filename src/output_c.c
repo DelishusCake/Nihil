@@ -214,15 +214,6 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	writeString(buffer, ")");
 };
 
-static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index);
-static void output_block(buffer_t *buffer, const stmt_t *stmt, u32 index)
-{
-	const stmtList_t *stmts = &stmt->block.statements;
-	for (u32 i = 0; i < stmts->count; ++i)
-	{
-		output_statement(buffer, stmts->data[i], index+1);
-	}
-}
 static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
 	assert(stmt);
@@ -250,9 +241,13 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 		} break;
 		case STMT_BLOCK:
 		{
+			const stmtList_t *stmts = &stmt->block.statements;
 			indent(buffer, index);
 			writeString(buffer, "{\n");
-			output_block(buffer, stmt, index);
+			for (u32 i = 0; i < stmts->count; ++i)
+			{
+				output_statement(buffer, stmts->data[i], index+1);
+			}
 			indent(buffer, index);
 			writeString(buffer, "}\n");
 		} break;
@@ -298,13 +293,7 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			output_arg_list(buffer, arguments);
 			writeString(buffer, "\n");
 
-			{	
-				indent(buffer, index);
-				writeString(buffer, "{\n");
-				output_block(buffer, body, index);
-				indent(buffer, index);
-				writeString(buffer, "}\n");
-			}
+			output_statement(buffer, body, index);
 		} break;
 		case STMT_WHILE:
 		{

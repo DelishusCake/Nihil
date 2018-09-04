@@ -31,11 +31,7 @@ static bool compile(
 		{
 			// Output the result
 			output_c(&parser, output);
-			// Free the parser
-			freeParser(&parser);
 		};
-		// Free the token list
-		freeArray(token_t, &tokens);
 	}
 	return result;
 };
