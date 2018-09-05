@@ -32,7 +32,7 @@ static bool compile(
 			// Output the result
 			output_c(&parser, output);
 			result = true;
-		};
+		}
 	}
 	return result;
 };
