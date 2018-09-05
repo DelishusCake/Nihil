@@ -8,6 +8,7 @@
 #include "stmt.h"
 
 #include "scope.h"
+#include "type.h"
 
 // Validates a global list of statements
 bool validate(stmtList_t *statements);

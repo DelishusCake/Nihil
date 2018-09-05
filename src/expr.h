@@ -109,6 +109,8 @@ struct expr_s
 expr_t* allocExpr();
 void freeExpr(expr_t *expr);
 
+expr_t* cloneExpr(const expr_t *old);
+
 #if DEBUG
 // Debug prints the expression
 // NOTE: Index is the starting indentation for the print
@@ -118,9 +120,5 @@ void printExpr(expr_t *expr, u32 index);
 // Expression list functions
 void pushExpr(exprList_t *expressions, expr_t *expr);
 void freeExprList(exprList_t *expressions);
-
-// Type expression functions
-expr_t* evaluateExprType(expr_t *expr, typeFlags_t flags);
-bool typeExpressionsMatch(expr_t *a, expr_t *b);
 
 #endif

@@ -98,6 +98,8 @@ void initScopeStack(scopeStack_t *stack)
 	stack->size = 16; // Default size of 16
 	stack->blocks = malloc(stack->size*sizeof(scopeBlock_t*));
 	assert(stack->blocks);
+
+	pushScopeBlock(stack);
 };
 void freeScopeStack(scopeStack_t *stack)
 {
@@ -136,7 +138,7 @@ void insertVar(scopeStack_t *stack, token_t name, expr_t *type)
 	assert(block);
 	insertIntoScopeBlock(block, name, type);
 };
-expr_t* getVarType(scopeStack_t *stack, token_t name)
+expr_t* getVarType(const scopeStack_t *stack, token_t name)
 {
 	// Search from the top down
 	for (u32 i = stack->used; i > 0; i--)

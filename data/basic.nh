@@ -18,7 +18,7 @@ main :: () -> i32
 	defer printf("\n%d %d\n", *r, **p);
 	
 	// Basic type inferencing
-	let var m := 32;
+	let var m := n;
 	let var k := (u32)(m + m);
 
 	let b := false;

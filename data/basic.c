@@ -16,7 +16,7 @@ int32_t main(void)
 	int32_t n = 1;
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;
-	int32_t m = 32;
+	int32_t m = n;
 	uint32_t const k = (uint32_t const)(m+m);
 	bool const b = false;
 	if (!b||!return_nil())

@@ -30,7 +30,7 @@ void insertVar(scopeStack_t *stack, token_t name, expr_t *type);
 Entry type checking. 
 Returns the topmost found entry's type, searching down the stack until an entry is found or NULL if no entry exists
 */
-expr_t* getVarType(scopeStack_t *stack, token_t name);
+expr_t* getVarType(const scopeStack_t *stack, token_t name);
 
 // A stack of defered expressions
 typedef struct 
