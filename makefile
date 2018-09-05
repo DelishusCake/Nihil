@@ -18,6 +18,7 @@ out/%.o: lib/%.c
 
 $(bin): $(out) $(lib_out)
 	gcc $^ -o $@ $(lib:%=-l%)
+	nihil data/basic.nh data/basic.c
 
 clean:
 	rm out/*

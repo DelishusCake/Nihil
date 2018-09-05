@@ -11,7 +11,7 @@ main :: () -> i32
 	defer printf("Hi!\n");
 
 	// Basic pointer types!
-	let var n := 1;
+	let var n := 1+545354;
 	let r:ptr<var i32> = &n;
 	let p:ptr<ptr<var i32>> = &r;
 	

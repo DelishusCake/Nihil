@@ -67,14 +67,14 @@ static expr_t* evaluateVariableType(expr_t *expr, const scopeStack_t *scope, typ
 	// Return the type of the identifier
 	// TODO: Checking
 	const token_t name = expr->variable.name;
-	const expr_t *old_type = getVarType(scope, name);
-	if (old_type)
+	expr_t *type = getVarType(scope, name);
+	if (!type)
 	{
-		expr_t *new_type = cloneExpr(old_type);
-		return new_type;
+		printf("ERROR [%d:%d] :: Identifier \"%.*s\" not found\n", 
+			name.line, name.line_offset,
+			name.len, name.start);
 	}
-	printf("[ERROR] :: Identifier \"%.*s\" not found\n", name.len, name.start);
-	return NULL;
+	return type;
 };
 static expr_t* evaluateBinaryExprType(expr_t *expr, const scopeStack_t *scope, typeFlags_t flags)
 {

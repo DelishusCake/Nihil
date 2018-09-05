@@ -41,8 +41,8 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeSta
 	{
 		case STMT_FUNCTION:
 		{
-			stmt_t *body = stmt->function.body;
 			argList_t *args = &stmt->function.arguments;
+			stmt_t *body = stmt->function.body;
 
 			// Push the scope block
 			pushScopeBlock(scope);
@@ -54,6 +54,7 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeSta
 					insertVar(scope, decl->name, decl->type);
 				}
 				// Validate the body statements
+				// NOTE: This must be done seperately so that we still have access to the new iterator
 				itr_t new_itr = {};
 				new_itr.stmts = &body->block.statements;
 				while (true)
@@ -130,7 +131,8 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeSta
 				printExpr(type, 0);
 				#endif
 				// Set the type
-				decl->type = type;
+				// NOTE: We clone it so on free, this is not freed before or after it is necessary to
+				decl->type = cloneExpr(type);
 			} else {
 				// TODO: Check if types match for initializer
 			}
