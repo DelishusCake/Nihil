@@ -42,10 +42,18 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeSta
 		case STMT_FUNCTION:
 		{
 			stmt_t *body = stmt->function.body;
+			argList_t *args = &stmt->function.arguments;
 
 			// Push the scope block
 			pushScopeBlock(scope);
 			{
+				// Push the arguments into the scope
+				for (u32 i = 0; i < args->count; i++)
+				{
+					const varDecl_t *decl = args->data + i;
+					insertVar(scope, decl->name, decl->type);
+				}
+				// Validate the body statements
 				itr_t new_itr = {};
 				new_itr.stmts = &body->block.statements;
 				while (true)
@@ -56,14 +64,18 @@ static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeSta
 					if (!validateStmt(&new_itr, stmt, defer, scope))
 						return false;
 				};
+				// If the last line is not a return
 				stmt_t *last = new_itr.stmts->data[new_itr.next-1];
 				if (last->type != STMT_RETURN)
 				{
+					// Unwind the defer stack
 					new_itr.next ++;
 					unwindDefered(defer, &new_itr);
 				}
-				resetDeferStack(defer);
 			}
+			// Reset the defer stack
+			resetDeferStack(defer);
+			// Pop the scope stack
 			popScopeBlock(scope);
 		} break;
 		case STMT_IF:

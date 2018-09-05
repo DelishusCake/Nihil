@@ -32,9 +32,10 @@ int32_t main(void)
 }
 void do_print(uint32_t const lim)
 {
+	uint32_t const l = lim;
 	{
 		uint32_t i = 0;
-		while(i<=lim)
+		while(i<=l)
 		{
 			{
 				printf("%d ", i);

@@ -16,7 +16,7 @@ main :: () -> i32
 	let p:ptr<ptr<var i32>> = &r;
 	
 	defer printf("\n%d %d\n", *r, **p);
-	
+
 	// Basic type inferencing
 	let var m := n;
 	let var k := (u32)(m + m);
@@ -32,10 +32,12 @@ main :: () -> i32
 
 do_print :: (lim:u32)
 {
+	let l := lim;
+
 	defer printf("\n");
 	// Non-inclusive:
 	// for (i:u32 in [0, lim))
-	for (i:u32 in [0, lim])
+	for (i:u32 in [0, l])
 	{
 		printf("%d ", i);
 	}

@@ -6,9 +6,9 @@ Nihil
 
 Nihil is a small programming language that compiles to C. It is not intended as a *replacement* for C, but rather as a micro-language to add the features I think c most needs.
 
-At the moment the language is *somewhat* usable, it correctly parses and outputs basic programs, but does no type/scope checking. The following items still need to be done:
+At the moment the language is *somewhat* usable, it correctly parses and outputs basic programs with type/scope checking, but not for functions. The following items still need to be done:
 
-* Type/scope checking
+* Type/scope checking for functions
 * Better optimization
   * Constant folding (should be easy, values are constant by default)
   * Function inlining
