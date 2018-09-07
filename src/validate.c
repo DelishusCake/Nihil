@@ -49,7 +49,7 @@ static bool validateFunctionStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, 
 		for (u32 i = 0; i < args->count; i++)
 		{
 			const varDecl_t *decl = args->data + i;
-			insertVar(scope, decl->name, decl->type);
+			insertVar(scope, decl);
 		}
 		// Validate the body statements
 		// NOTE: This must be done seperately so that we still have access to the new iterator
@@ -144,7 +144,7 @@ static bool validateVariableStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, 
 		return false;
 	}
 	// Insert the variable into the scope
-	insertVar(scope, decl->name, decl->type);
+	insertVar(scope, decl);
 	return true;
 };
 static bool validateBlockStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)

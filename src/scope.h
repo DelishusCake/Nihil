@@ -25,7 +25,7 @@ void freeScopeStack(scopeStack_t *stack);
 void pushScopeBlock(scopeStack_t *stack);
 void popScopeBlock(scopeStack_t *stack);
 // Entry insertion. Entries are always inserted into the topmost block of the stack.
-void insertVar(scopeStack_t *stack, token_t name, expr_t *type);
+void insertVar(scopeStack_t *stack, const varDecl_t *decl);
 /* 
 Entry type checking. 
 Returns the topmost found entry's type, searching down the stack until an entry is found or NULL if no entry exists

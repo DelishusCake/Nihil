@@ -47,11 +47,11 @@ static void freeScopeBlock(scopeBlock_t *block)
 	// Free the block itself
 	free(block);
 };
-static void insertIntoScopeBlock(scopeBlock_t *block, token_t name, expr_t *type)
+static void insertIntoScopeBlock(scopeBlock_t *block, const varDecl_t *decl)
 {
 	// Hash string and convert to index
 	u32 hash = 0;
-	MurmurHash3_x86_32(name.start, name.len, SCOPE_HASH_SEED, &hash);
+	MurmurHash3_x86_32(decl->name.start, decl->name.len, SCOPE_HASH_SEED, &hash);
 	const u32 listIndex = hash % SCOPE_BLOCK_SIZE;
 	
 	scopeList_t *list = block->lists + listIndex;
@@ -64,8 +64,8 @@ static void insertIntoScopeBlock(scopeBlock_t *block, token_t name, expr_t *type
 	};
 	// Insert into the list
 	const u32 index = list->used ++;
-	list->names[index] = name;
-	list->types[index] = type;
+	list->names[index] = decl->name;
+	list->types[index] = decl->type;
 };
 static expr_t* getInScopeBlock(scopeBlock_t *block, token_t name)
 {
@@ -130,13 +130,13 @@ void popScopeBlock(scopeStack_t *stack)
 	free(stack->blocks[index]);
 };
 
-void insertVar(scopeStack_t *stack, token_t name, expr_t *type)
+void insertVar(scopeStack_t *stack, const varDecl_t *decl)
 {
 	// Get the top scope block
 	const u32 top = stack->used-1;
 	scopeBlock_t *block = stack->blocks[top];
 	assert(block);
-	insertIntoScopeBlock(block, name, type);
+	insertIntoScopeBlock(block, decl);
 };
 expr_t* getVarType(const scopeStack_t *stack, token_t name)
 {

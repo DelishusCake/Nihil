@@ -22,6 +22,12 @@ typedef enum
 	TYPE_FLAG_BASIC		= (1 << 1),
 	TYPE_FLAG_RETURN	= (1 << 2),
 } typeFlags_t;
+typedef struct
+{
+	token_t name;
+	expr_t *type;
+	typeFlags_t flags;
+} varDecl_t;
 
 typedef enum
 {
@@ -92,16 +98,24 @@ struct expr_s
 			expr_t *value;
 		} assignment;
 
+		// u[8-64], i[8-64], f[32|64], bool char
 		struct
 		{
 			typeFlags_t flags;
 			token_t value;
 		} builtin;
+		// ptr<type>
 		struct
 		{
 			typeFlags_t flags;
 			expr_t *to;
 		} ptr;
+		// fn<args, return>
+		struct 
+		{
+			exprList_t args;
+			expr_t *ret;
+		} fn;
 	};
 };
 

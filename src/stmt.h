@@ -18,12 +18,6 @@ typedef struct
 /* List of arguments */
 typedef struct
 {
-	token_t name;
-	expr_t *type;
-	typeFlags_t flags;
-} varDecl_t;
-typedef struct
-{
 	size_t count;
 	size_t size;
 	varDecl_t *data;
