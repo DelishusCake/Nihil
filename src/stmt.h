@@ -10,9 +10,7 @@ typedef struct stmt_s stmt_t;
 
 typedef struct
 {
-	size_t count;
-	size_t size;
-	stmt_t **data;
+	stmt_t *head;
 } stmtList_t;
 
 /* List of arguments */
@@ -81,16 +79,25 @@ struct stmt_s
 			stmt_t *body;
 		} function;
 	};
+	// List pointers
+	stmt_t *next;
+	stmt_t *prev;
 };
 
 stmt_t* allocStmt();
 void freeStmt(stmt_t *stmt);
 
-
 void pushStmt(stmtList_t *statements, stmt_t *stmt);
+void freeStmtList(stmtList_t *statements);
+
+void removeStmt(stmtList_t *statements, stmt_t *stmt);
+void insertStmtAfter(stmtList_t *statements, stmt_t *after, stmt_t *new_stmt);
+void insertStmtBefore(stmtList_t *statements, stmt_t *before, stmt_t *new_stmt);
+
+#if 0
 stmt_t* removeStmt(stmtList_t *statements, u32 index);
 void insertStmtAt(stmtList_t *statements, stmt_t *stmt, u32 index);
-void freeStmtList(stmtList_t *statements);
+#endif
 
 varDecl_t* pushVarDecl(argList_t *arguments);
 void freeArgList(argList_t *arguments);

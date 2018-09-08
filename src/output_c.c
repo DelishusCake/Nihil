@@ -244,9 +244,14 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			const stmtList_t *stmts = &stmt->block.statements;
 			indent(buffer, index);
 			writeString(buffer, "{\n");
-			for (u32 i = 0; i < stmts->count; ++i)
+
+			stmt_t *nextStmt = stmts->head;
+			while (nextStmt)
 			{
-				output_statement(buffer, stmts->data[i], index+1);
+				output_statement(buffer, nextStmt, index+1);
+				if (nextStmt->next == stmts->head)
+					break;
+				nextStmt = nextStmt->next;
 			}
 			indent(buffer, index);
 			writeString(buffer, "}\n");
@@ -277,7 +282,11 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			}
 			writeString(buffer, ";\n");
 		} break;
-		case STMT_DEFER: break;
+		case STMT_DEFER:
+		{
+			indent(buffer, index);
+			writeString(buffer, "/* Unremoved defer statement */\n");
+		} break;
 		case STMT_FUNCTION:
 		{
 			const token_t *name = &stmt->function.decl.name;
@@ -329,10 +338,11 @@ static void output_std_header(buffer_t *buffer)
 static void output_prototypes(buffer_t *buffer, const parser_t *parser)
 {
 	writeString(buffer, "/* Function prototypes */\n");
-	const stmtList_t *statements = &parser->statements; 
-	for (u32 i = 0; i < statements->count; i++)
+	const stmtList_t *stmts = &parser->statements;
+
+	stmt_t *stmt = stmts->head;
+	while (stmt)
 	{
-		const stmt_t *stmt = statements->data[i];
 		switch (stmt->type)
 		{
 			// Output the prototype of all functions
@@ -351,19 +361,27 @@ static void output_prototypes(buffer_t *buffer, const parser_t *parser)
 			// Default case for everything else
 			default: break;
 		}
-	};
+
+		if (stmt->next == stmts->head)
+			break;
+		stmt = stmt->next;
+	}
 };
 static void output_all_statements(buffer_t *buffer, const parser_t *parser)
 {
 	// Just print all the statements
 	writeString(buffer, "/* Code */\n");
-	const stmtList_t *statements = &parser->statements; 
-	for (u32 i = 0; i < statements->count; i++)
+	const stmtList_t *stmts = &parser->statements; 
+
+	stmt_t *stmt = stmts->head;
+	while (stmt)
 	{
-		const stmt_t *stmt = statements->data[i];
-		// By default, statements have no defer stack
 		output_statement(buffer, stmt, 0);
-	};
+
+		if (stmt->next == stmts->head)
+			break;
+		stmt = stmt->next;
+	}
 };
 
 void output_c(const parser_t *parser, const char *filename)

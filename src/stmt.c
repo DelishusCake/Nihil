@@ -56,75 +56,76 @@ void freeStmt(stmt_t *stmt)
 	} 
 };
 
-static void growStmtList(stmtList_t *statements)
-{
-	if (!statements->size)
-	{
-		statements->count = 0;
-		statements->size = 16;
-		statements->data = malloc(statements->size*sizeof(stmt_t*));
-		assert (statements->data);
-	} else if ((statements->count + 1) >= statements->size) {
-		statements->size <<= 1;
-		statements->data = realloc(statements->data, statements->size*sizeof(stmt_t*));
-		assert (statements->data);
-	};
-}
 void pushStmt(stmtList_t *statements, stmt_t *stmt)
 {
-	growStmtList(statements);
-
-	const u32 index = statements->count ++;
-	statements->data[index] = stmt;
-};
-stmt_t* removeStmt(stmtList_t *statements, u32 index)
-{
-	stmt_t *stmt = NULL;
-	if ((index >= 0) && (index < statements->count))
+	assert (statements);
+	stmt->next = stmt->prev = NULL;
+	if (!statements->head)
 	{
-		stmt = statements->data[index];
-
-		for (u32 i = index; i < statements->count; i++)
+		statements->head = stmt;	
+	} else {
+		stmt_t *tail = statements->head->prev;
+		if (tail)
 		{
-			statements->data[i] = statements->data[i+1];
-		};
-		statements->count --;
-	}
-	return stmt;
-};
-void insertStmtAt(stmtList_t *statements, stmt_t *stmt, u32 index)
-{
-	if (index == statements->count)
-	{
-		pushStmt(statements, stmt);
-	} else if ((index >= 0) && (index < statements->count)) {
-		growStmtList(statements);
+			tail->next = stmt;
+			stmt->prev = tail;
 
-		for (i32 i = statements->count; i > index; i--)
-		{
-			statements->data[i] = statements->data[i-1];
+			statements->head->prev = stmt;
+			stmt->next = statements->head;
+		} else {
+			stmt->prev = statements->head;
+			stmt->next = statements->head;
+
+			statements->head->next = stmt;
+			statements->head->prev = stmt;
 		}
-
-		statements->data[index] = stmt;
-		statements->count ++;
-	};
+	}
 };
 void freeStmtList(stmtList_t *statements)
 {
-	if (statements->data)
+	stmt_t *stmt = statements->head;
+	while (stmt)
 	{
-		// Recursively free all inner statements and expressions
-		for (u32 i = 0; i < statements->count; i++)
-		{
-			stmt_t *stmt = statements->data[i];
-			freeStmt(stmt);
-			
-		};
-		// Free the actual array
-		free(statements->data);
-		// Zero the structure, just in case
-		zeroMemory(statements, sizeof(stmtList_t));
+		stmt_t *next = stmt->next;
+		freeStmt(stmt);
+		if (next == statements->head)
+			break;
+		stmt = next;
 	};
+};
+void removeStmt(stmtList_t *statements, stmt_t *stmt)
+{
+	stmt_t *next = stmt->next;
+	stmt_t *prev = stmt->prev;
+
+	if (prev) prev->next = next;
+	if (next) next->prev = prev;
+
+	if (stmt == statements->head)
+		statements->head = NULL;
+};
+void insertStmtAfter(stmtList_t *statements, stmt_t *after, stmt_t *new_stmt)
+{
+	stmt_t *next = after->next;
+	next->prev = new_stmt;
+	new_stmt->next = next;
+
+	after->next = new_stmt;
+	new_stmt->prev = after;
+};
+void insertStmtBefore(stmtList_t *statements, stmt_t *before, stmt_t *new_stmt)
+{
+	stmt_t *prev = before->prev;
+	prev->next = new_stmt;
+	new_stmt->prev = prev;
+
+	before->prev = new_stmt;
+	new_stmt->next = before;
+
+	if (before == statements->head)
+	{
+		statements->head = new_stmt;
+	}
 };
 
 varDecl_t* pushVarDecl(argList_t *arguments)
