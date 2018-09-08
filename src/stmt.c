@@ -56,6 +56,15 @@ void freeStmt(stmt_t *stmt)
 	} 
 };
 
+stmt_t *getLastStmt(stmtList_t *statements)
+{
+	assert (statements);
+	if (!statements->head)
+	{
+		return NULL;	
+	}
+	return statements->head->prev;
+}
 void pushStmt(stmtList_t *statements, stmt_t *stmt)
 {
 	assert (statements);

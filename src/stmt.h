@@ -88,11 +88,11 @@ stmt_t* allocStmt();
 void freeStmt(stmt_t *stmt);
 
 void pushStmt(stmtList_t *statements, stmt_t *stmt);
-void freeStmtList(stmtList_t *statements);
-
 void removeStmt(stmtList_t *statements, stmt_t *stmt);
 void insertStmtAfter(stmtList_t *statements, stmt_t *after, stmt_t *new_stmt);
 void insertStmtBefore(stmtList_t *statements, stmt_t *before, stmt_t *new_stmt);
+stmt_t *getLastStmt(stmtList_t *statements);
+void freeStmtList(stmtList_t *statements);
 
 #if 0
 stmt_t* removeStmt(stmtList_t *statements, u32 index);

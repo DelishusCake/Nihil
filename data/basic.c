@@ -13,25 +13,26 @@ void * return_nil(void);
 int32_t main(void)
 {
 	do_print(100);
-	/* Unremoved defer statement */
 	int32_t n = 1+545354;
 	int32_t * const r = &n;
 	int32_t * const * const p = &r;
-	/* Unremoved defer statement */
 	int32_t m = n;
 	uint32_t const k = (uint32_t const)(m+m);
 	bool const b = false;
 	if (!b||!return_nil())
 	{
 		*r = 4+4;
+		printf("\n%d %d\n", *r, **p);
+		printf("Hi!\n");
 		return 0;
 	}
+	printf("\n%d %d\n", *r, **p);
+	printf("Hi!\n");
 	return 1;
 }
 void do_print(uint32_t const lim)
 {
 	uint32_t const l = lim;
-	/* Unremoved defer statement */
 	{
 		uint32_t i = 0;
 		while(i<=l)
@@ -42,6 +43,7 @@ void do_print(uint32_t const lim)
 			i++;
 		}
 	}
+	printf("\n");
 }
 void * return_nil(void)
 {

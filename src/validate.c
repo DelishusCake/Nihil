@@ -6,6 +6,7 @@ typedef struct
 	stmtList_t *stmts;
 } itr_t;
 
+#if 0
 static void unwindDefered(deferStack_t *defer, itr_t *itr)
 {
 	for (u32 i = defer->used; i > 0; i--)
@@ -15,10 +16,10 @@ static void unwindDefered(deferStack_t *defer, itr_t *itr)
 		stmt_t *stmt = allocStmt();
 		stmt->type = STMT_EXPR;
 		stmt->expression.expr = expr;
-		insertStmtAfter(itr->stmts, itr->current, stmt);
-		itr->current = stmt;
+		insertStmtBefore(itr->stmts, itr->current, stmt);
 	};
 }
+#endif
 
 static void error(const token_t *token, const char *msg)
 {
@@ -26,6 +27,26 @@ static void error(const token_t *token, const char *msg)
 };
 
 static bool validateStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope);
+static bool validateStmtList(stmtList_t *stmts, deferStack_t *defer, scopeStack_t *scope)
+{
+	itr_t itr = {};
+	itr.stmts = stmts;
+	itr.current = stmts->head;
+
+	bool error = false;
+	while (!error && itr.current)
+	{
+		if (!validateStmt(&itr, itr.current, defer, scope))
+		{
+			error = true;
+			break;
+		}
+		if (!itr.current || !itr.current->next || (itr.current->next == itr.stmts->head))
+			break;
+		itr.current = itr.current->next;
+	};
+	return error;
+}
 static bool validateFunctionStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
 {
 	argList_t *args = &stmt->function.arguments;
@@ -41,37 +62,23 @@ static bool validateFunctionStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, 
 			const varDecl_t *decl = args->data + i;
 			insertVar(scope, decl);
 		}
-		// Validate the body statements
-		// NOTE: This must be done seperately so that we still have access to the new iterator
 		stmtList_t *stmts = &body->block.statements;
-
-		itr_t new_itr = {};
-		new_itr.stmts = stmts;
-		new_itr.current = stmts->head;
-
-		bool error = false;
-		while (!error && new_itr.current)
-		{
-			assert (new_itr.current);
-			if (!validateStmt(&new_itr, new_itr.current, defer, scope))
-			{
-				error = true;
-				break;
-			}
-			if (new_itr.current->next == new_itr.stmts->head)
-				break;
-			new_itr.current = new_itr.current->next;
-		};
+		// Validate the body statements
+		validateStmtList(stmts, defer, scope);
 		// If the last line is not a return
-		new_itr.current = new_itr.stmts->head->prev;
-		if (new_itr.current)
-		{
-			new_itr.current = new_itr.stmts->head;
-		}
-		if (new_itr.current && new_itr.current->type != STMT_RETURN)
+		stmt_t* last = getLastStmt(stmts);
+		if (last && (last->type != STMT_RETURN))
 		{
 			// Unwind the defer stack
-			unwindDefered(defer, &new_itr);
+			for (u32 i = defer->used; i > 0; i--)
+			{
+				expr_t *expr = defer->expressions[i-1];
+
+				stmt_t *new_stmt = allocStmt();
+				new_stmt->type = STMT_EXPR;
+				new_stmt->expression.expr = expr;
+				insertStmtAfter(itr->stmts, last, new_stmt);
+			};
 		}
 	}
 	// Reset the defer stack
@@ -96,26 +103,27 @@ static bool validateWhileStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, sco
 };
 static bool validateDeferStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
 {
-	#if 0
 	// Push the expression to the defered stack
 	expr_t *expr = stmt->defer.expression;
 	pushDeferedExpr(defer, expr);
 	
-	stmt_t *next = stmt->next;
-	itr->current = next;
-
 	removeStmt(itr->stmts, stmt);
-	#endif
 	return true;
 } 
 static bool validateReturnStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
 {
-	if (defer->used != 0)
+	for (u32 i = defer->used; i > 0; i--)
 	{
-		unwindDefered(defer, itr);
-	}
+		expr_t *expr = defer->expressions[i-1];
+
+		stmt_t *new_stmt = allocStmt();
+		new_stmt->type = STMT_EXPR;
+		new_stmt->expression.expr = expr;
+		insertStmtBefore(itr->stmts, stmt, new_stmt);
+	};
 	return true;
 } 
+
 static bool validateVariableStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
 {
 	varDecl_t *decl = &stmt->var.decl;
@@ -154,28 +162,10 @@ static bool validateVariableStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, 
 };
 static bool validateBlockStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
 {
+	stmtList_t *stmts = &stmt->block.statements;
+
 	pushScopeBlock(scope);
-	{
-		stmtList_t *stmts = &stmt->block.statements;
-
-		itr_t new_itr = {};
-		new_itr.stmts = stmts;
-		new_itr.current = stmts->head;
-
-		bool error = false;
-		while (!error && new_itr.current && new_itr.current)
-		{
-			assert (new_itr.current);
-			if (!validateStmt(&new_itr, new_itr.current, defer, scope))
-			{
-				error = true;
-				break;
-			}
-			if (new_itr.current->next == new_itr.stmts->head)
-				break;
-			new_itr.current = new_itr.current->next;
-		};
-	}
+	validateStmtList(stmts, defer, scope);
 	popScopeBlock(scope);
 	return true;
 };
@@ -207,23 +197,7 @@ bool validate(stmtList_t *statements)
 	scopeStack_t scope = {};
 	initScopeStack(&scope);
 
-	itr_t itr = {};
-	itr.stmts = statements;
-	itr.current = statements->head;
-
-	bool error = false;
-	while (!error && itr.current)
-	{
-		assert (itr.current);
-		if (!validateStmt(&itr, itr.current, &defer, &scope))
-		{
-			error = true;
-			break;
-		}
-		if (itr.current->next == itr.stmts->head)
-			break;
-		itr.current = itr.current->next;
-	};
+	bool error = validateStmtList(statements, &defer, &scope);
 	freeScopeStack(&scope);
 	freeDeferStack(&defer);
 	return !error;
