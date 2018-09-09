@@ -213,16 +213,16 @@ static void output_arg_list(buffer_t *buffer, const argList_t *arguments)
 	}
 	writeString(buffer, ")");
 };
-
 static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 {
 	assert(stmt);
+	indent(buffer, index);
 	switch(stmt->type)
 	{
 		case STMT_NONE: break;
+		// C: <type> <name> (= <initializer>)?;
 		case STMT_VAR:
 		{
-			indent(buffer, index);
 			output_expression(buffer, stmt->var.decl.type);
 			writeChar(buffer, ' ');
 			output_token(buffer, &stmt->var.decl.name);
@@ -233,16 +233,16 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			}
 			writeString(buffer, ";\n");
 		} break;
+		// C: <expr>;
 		case STMT_EXPR:
 		{
-			indent(buffer, index);
 			output_expression(buffer, stmt->expression.expr);
 			writeString(buffer, ";\n");
 		} break;
+		// C: { <stmts> }
 		case STMT_BLOCK:
 		{
 			const stmtList_t *stmts = &stmt->block.statements;
-			indent(buffer, index);
 			writeString(buffer, "{\n");
 
 			stmt_t *nextStmt = stmts->head;
@@ -256,9 +256,9 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			indent(buffer, index);
 			writeString(buffer, "}\n");
 		} break;
+		// C: if (<condition>) <then> (else <else>)?
 		case STMT_IF:
 		{
-			indent(buffer, index);
 			writeString(buffer, "if (");
 			output_expression(buffer, stmt->conditional.condition);
 			writeString(buffer, ")\n");
@@ -270,11 +270,11 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 				output_statement(buffer, stmt->conditional.elseBranch, index);
 			}
 		} break;
+		// C: return <expr>?;
 		case STMT_RETURN:
 		{
 			const expr_t *value = stmt->ret.value;
 
-			indent(buffer, index);
 			writeString(buffer, "return ");
 			if (value)
 			{
@@ -282,19 +282,19 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 			}
 			writeString(buffer, ";\n");
 		} break;
+		// C:
 		case STMT_DEFER:
 		{
-			indent(buffer, index);
+			// If we got here, we've made a mistake in validation
 			writeString(buffer, "/* Unremoved defer statement */\n");
 		} break;
+		// C: <return> <name> (<arg>*) <body>
 		case STMT_FUNCTION:
 		{
 			const token_t *name = &stmt->function.decl.name;
 			const expr_t *type = stmt->function.decl.type;
 			const argList_t *arguments = &stmt->function.arguments;
 			const stmt_t *body = stmt->function.body;
-
-			indent(buffer, index);
 
 			output_expression(buffer, type);
 			writeString(buffer, " ");
@@ -304,12 +304,11 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 
 			output_statement(buffer, body, index);
 		} break;
+		// C: while(<condition>) <body>
 		case STMT_WHILE:
 		{
 			const expr_t *condition = stmt->whileLoop.condition;
 			const stmt_t *body = stmt->whileLoop.body;
-
-			indent(buffer, index);
 
 			writeString(buffer, "while(");
 			output_expression(buffer, condition);
@@ -319,7 +318,6 @@ static void output_statement(buffer_t *buffer, const stmt_t *stmt, u32 index)
 
 		default:
 		{
-			indent(buffer, index);
 			writeString(buffer, "/* ERROR NOT IMPLEMENTED */\n"); 
 		} break;
 	};

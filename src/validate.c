@@ -6,21 +6,6 @@ typedef struct
 	stmtList_t *stmts;
 } itr_t;
 
-#if 0
-static void unwindDefered(deferStack_t *defer, itr_t *itr)
-{
-	for (u32 i = defer->used; i > 0; i--)
-	{
-		expr_t *expr = defer->expressions[i-1];
-
-		stmt_t *stmt = allocStmt();
-		stmt->type = STMT_EXPR;
-		stmt->expression.expr = expr;
-		insertStmtBefore(itr->stmts, itr->current, stmt);
-	};
-}
-#endif
-
 static void error(const token_t *token, const char *msg)
 {
 	printf("ERROR [%d:%d] :: %s\n", token->line, token->line_offset, msg);
@@ -77,7 +62,7 @@ static bool validateFunctionStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, 
 				stmt_t *new_stmt = allocStmt();
 				new_stmt->type = STMT_EXPR;
 				new_stmt->expression.expr = expr;
-				insertStmtAfter(itr->stmts, last, new_stmt);
+				insertStmtAfter(stmts, last, new_stmt);
 			};
 		}
 	}
@@ -106,8 +91,12 @@ static bool validateDeferStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, sco
 	// Push the expression to the defered stack
 	expr_t *expr = stmt->defer.expression;
 	pushDeferedExpr(defer, expr);
-	
+	stmt->defer.expression = NULL;
+
+	stmt_t *prev = stmt->prev;
 	removeStmt(itr->stmts, stmt);
+	freeStmt(stmt);
+	itr->current = prev;
 	return true;
 } 
 static bool validateReturnStmt(itr_t *itr, stmt_t *stmt, deferStack_t *defer, scopeStack_t *scope)
